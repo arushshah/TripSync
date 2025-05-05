@@ -104,11 +104,14 @@ def register_user():
 
 @users_bp.route('/check-phone', methods=['POST', 'OPTIONS'])
 def check_phone_exists():
-    # Handle OPTIONS request for CORS preflight
-    if request.method == 'OPTIONS':
-        return '', 204
-    
-    data = request.get_json()
+
+    # For POST requests
+    if request.is_json:
+        data = request.get_json()
+    else:
+        # Handle non-JSON content types
+        return jsonify({'error': 'Content-Type must be application/json'}), 415
+        
     phone_number = data.get('phone_number')
     
     if not phone_number:

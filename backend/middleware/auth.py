@@ -67,7 +67,41 @@ try:
 except Exception as e:
     print(f"Unexpected error initializing Firebase: {e}")
 
-def authenticate_token(f):
+def authenticate_token(f=None):
+    """Authentication middleware that can work as both a decorator and a direct function"""
+    # When called directly without arguments from before_request
+    if f is None:
+        # Get the ID token from the Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid authorization header'}), 401
+        
+        try:
+            # Verify the ID token and get user info
+            token = auth_header.split('Bearer ')[1]
+            decoded_token = auth.verify_id_token(token)
+            user_id = decoded_token['uid']
+            
+            # Add the user ID to the request for route handlers to use
+            request.user_id = user_id
+            request.user_phone = decoded_token.get('phone_number')
+            
+            # Check if user exists in our database
+            from models.user import User
+            
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'error': 'User account not found. Please complete registration.', 'code': 'REGISTRATION_REQUIRED'}), 403
+            
+            # Add user to request object for convenience in route handlers
+            request.user = user
+            
+            # Return None to continue processing the request
+            return None
+        except Exception as e:
+            return jsonify({'error': f'Invalid authentication token: {str(e)}'}), 401
+    
+    # When used as a decorator
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # Get the ID token from the Authorization header
@@ -92,9 +126,6 @@ def authenticate_token(f):
             user = User.query.get(user_id)
             if not user:
                 # User exists in Firebase but not in our database
-                # This typically means they haven't completed registration
-                # Instead of creating the user automatically, we should return an error
-                # or redirect them to complete registration
                 return jsonify({'error': 'User account not found. Please complete registration.', 'code': 'REGISTRATION_REQUIRED'}), 403
             
             # Add user to request object for convenience in route handlers

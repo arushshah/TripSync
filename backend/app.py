@@ -23,24 +23,51 @@ app = Flask(__name__)
 # Disable strict URL trailing slash handling to prevent redirects on OPTIONS requests
 app.url_map.strict_slashes = False
 
-# Configure CORS with more specific settings
-CORS(app, resources={r"/api/*": {
-    "origins": ["http://localhost:3000", "http://localhost:5555", "https://tripsync.vercel.app", "https://tripsync-app.vercel.app"],
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-    "supports_credentials": True
-}})
+# Configure CORS to properly handle preflight requests
+CORS(app, 
+     origins=["http://localhost:3000", "http://localhost:5555", "https://tripsync-gamma.vercel.app"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     supports_credentials=True,
+     max_age=3600)
 
-# Configure database
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+# Configure database with better error handling
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    print("ERROR: DATABASE_URL environment variable is not set!")
+
+# If using pg8000 driver instead of psycopg2
+if database_url and database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+# Set the modified URL
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,  # Check connection before use
+    "pool_recycle": 300,    # Recycle connections every 5 minutes
+    "connect_args": {       # Connection timeout settings
+        "connect_timeout": 10
+    }
+}
 
 # Initialize database with app
 db.init_app(app)
 
-# Create database tables
+# Create database tables with better error handling
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("Successfully connected to database and created tables")
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        print("Check that your DATABASE_URL is correct and that the database is accessible from your current network")
+        # In production, you might want to continue without failing
+        if os.getenv("FLASK_ENV") != "development":
+            print("In production mode - continuing despite database error")
+        else:
+            print("In development mode - raising error")
+            raise e
 
 # Register blueprints
 app.register_blueprint(trips_bp, url_prefix='/api/trips')
@@ -53,18 +80,26 @@ app.register_blueprint(expenses_bp, url_prefix='/api/expenses')
 app.register_blueprint(polls_bp, url_prefix='/api/polls')
 app.register_blueprint(map_bp, url_prefix='/api/map')
 
-# Root route
-@app.route('/')
-def index():
-    return jsonify({
-        "message": "Welcome to TripSync API",
-        "status": "online"
-    })
+# Middleware to authenticate token for protected routes only
+@app.before_request
+def before_request():
+    # Skip authentication for paths that don't require it
+    exempt_paths = [
+        '/api/users/register',
+        '/api/users/check-phone'
+    ]
+    
+    # Skip OPTIONS requests (for CORS preflight)
+    if request.method == 'OPTIONS':
+        return
+    
+    # Skip authentication for exempt paths
+    if request.path in exempt_paths:
+        return
+        
+    # Authenticate all other requests
+    return authenticate_token()
 
-# Global OPTIONS request handler for CORS preflight requests
-@app.route('/api/<path:path>', methods=['OPTIONS'])
-def options_handler(path):
-    return '', 204
-
-if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5555)
+# Run the app
+if __name__ == "__main__":
+    app.run(debug=True, port=5555)
