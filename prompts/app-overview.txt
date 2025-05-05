@@ -1,0 +1,43 @@
+I’m building a collaborative trip planning web application called TripSync. It’s designed to help groups plan trips together by consolidating RSVPs, documents, itineraries, and expenses in one place. The core idea is to simplify group travel planning with a social, mobile-first experience. Right now I’m focusing on building the web version, but I plan to wrap the app in Capacitor later to publish to iOS/Android as a mobile app.
+
+Core Features
+1. Users can create an account and log in using phone number + OTP (no emails or passwords).
+2. A logged-in user can create, view, update, and delete trips.
+3. Each trip has:
+- The ability to invite guests via an invite link
+- An RSVP system with three options: going, maybe, can't go
+- A guest limit (RSVP cap) and waitlist support
+- Guests who accept the invite can collaborate on the trip
+4. Each trip contains the following pages/modules:
+- Trip Details – Name, description, location, start/end dates
+- Guests – View all invitees, their RSVP status, and manage invitations
+- Travel Documents – Upload/share travel info (flights, trains, etc.)
+- Accommodation Documents – Upload hotel/Airbnb confirmations
+- Itinerary – Editable, day-by-day trip plan auto-generated based on trip dates.
+- To-Do List – Delegated action items (create, check off, delete)
+- Trip Map – Integrated with Google Maps API to show/save locations; markers grouped by categories (food, activities, etc.)
+- Expenses – Shared expense tracking with:
+    - Ledger View – All itemized expenses.
+    - Summary View – Balance calculations across trip guests.
+
+To stand out from competitors like Wanderlog, TripSync will include:
+- Phone + OTP login
+- RSVP system with “going,” “maybe,” “can’t go”
+- RSVP caps and waitlists
+- Text blast messaging to all trip guests
+- Emoji reactions to updates and messages
+- Real-time activity feed (e.g., doc uploads, RSVP changes, checklist completions)
+- Role-based permissions (planner, guest, viewer)
+- Delegated action items
+- Social voting polls (e.g., to decide dates, places, itinerary items)
+
+Tech Stack
+Layer | Tech
+Frontend | React + Next.js
+Backend | Flask (Python)
+Database | PostgreSQL via Supabase
+Auth | Firebase (Phone + OTP)
+File Storage | Supabase Storage
+Frontend Hosting | Vercel
+Backend Hosting | Render
+CI/CD | GitHub Actions
