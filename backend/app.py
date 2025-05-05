@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
@@ -23,24 +23,46 @@ app = Flask(__name__)
 # Disable strict URL trailing slash handling to prevent redirects on OPTIONS requests
 app.url_map.strict_slashes = False
 
-# Configure CORS to properly handle preflight requests
-CORS(app, 
-     origins=["http://localhost:3000", "http://localhost:5555", "https://tripsync-gamma.vercel.app"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-     supports_credentials=True,
-     expose_headers=["Content-Type", "Authorization"],
-     max_age=3600,
-     vary_header=True)
+# Allow all origins by default - will be overridden by more specific settings
+CORS(app)
 
-# Add explicit global OPTIONS handler for CORS preflight
+# Explicitly handle OPTIONS requests for the endpoint that's failing
+@app.route('/api/users/check-phone', methods=['OPTIONS'])
+def options_check_phone():
+    response = make_response()
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+    return response, 204
+
+# Apply CORS headers to all responses
 @app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://tripsync-gamma.vercel.app')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    response.headers.add('Access-Control-Max-Age', '3600')
+def add_cors_headers(response):
+    if request.method == 'OPTIONS':
+        # For OPTIONS requests, allow any origin
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response
+        
+    # For non-OPTIONS requests
+    origin = request.headers.get('Origin')
+    allowed_origins = [
+        'https://tripsync-gamma.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:5555'
+    ]
+    
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        # If origin is not in our allowed list, still allow it in development
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+    
     return response
 
 # Configure database with better error handling
@@ -112,6 +134,13 @@ def before_request():
     # Authenticate all other requests
     return authenticate_token()
 
-# Run the app
+# Add a health check endpoint
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "message": "TripSync API is running"
+    })
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5555)
+    app.run(debug=False, host='0.0.0.0', port=5555)
