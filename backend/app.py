@@ -25,7 +25,7 @@ app.url_map.strict_slashes = False
 
 # Configure CORS to properly handle preflight requests
 CORS(app, 
-     origins=["http://localhost:3000", "http://localhost:5555", "https://tripsync-gamma.vercel.app"],
+     origins=["http://localhost:3000", "http://localhost:5555", "https://tripsync-gamma.vercel.app", "https://tripsync-api.onrender.com"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
      supports_credentials=True,
