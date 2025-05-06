@@ -14,6 +14,7 @@ class Document(db.Model):
     file_size = db.Column(db.Integer, nullable=False)  # in bytes
     document_type = db.Column(db.String(20), nullable=False)  # travel, accommodation
     description = db.Column(db.Text, nullable=True)
+    is_public = db.Column(db.Boolean, default=True, nullable=False)  # Whether the document is visible to all trip members
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     
@@ -32,6 +33,7 @@ class Document(db.Model):
             'file_size': self.file_size,
             'document_type': self.document_type,
             'description': self.description,
+            'is_public': self.is_public,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

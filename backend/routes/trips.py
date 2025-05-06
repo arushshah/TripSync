@@ -11,10 +11,16 @@ trips_bp = Blueprint('trips', __name__)
 @trips_bp.route('/', methods=['GET'])
 @authenticate_token
 def get_trips():
-    """Get all trips for the current user"""
+    """Get all trips for the current user where they've RSVP'd as going"""
     user_id = request.user_id
-    trip_members = TripMember.query.filter_by(user_id=user_id).all()
-    trip_ids = [tm.trip_id for tm in trip_members]
+    
+    # Find all trips where the user is "going"
+    going_members = TripMember.query.filter_by(
+        user_id=user_id, 
+        rsvp_status='going'
+    ).all()
+    
+    trip_ids = [tm.trip_id for tm in going_members]
     trips = Trip.query.filter(Trip.id.in_(trip_ids)).all()
     
     return jsonify([trip.to_dict() for trip in trips]), 200
@@ -157,6 +163,40 @@ def create_invite(trip_id):
         'invite_token': invite_token
     }), 200
 
+@trips_bp.route('/<trip_id>/invite-info', methods=['GET'])
+@authenticate_token
+def get_trip_invite_info(trip_id):
+    """Get information about a trip for invitation purposes"""
+    # Find the trip
+    trip = Trip.query.get(trip_id)
+    
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    
+    # Check if the user already has a response to this invitation
+    member = TripMember.query.filter_by(
+        trip_id=trip_id,
+        user_id=request.user_id
+    ).first()
+    
+    response_data = {
+        'trip': trip.to_dict(),
+        'user_response': member.to_dict() if member else None
+    }
+    
+    # If the user is not already a member, add them with pending status
+    if not member:
+        new_member = TripMember(
+            trip_id=trip_id,
+            user_id=request.user_id,
+            role='viewer',  # Default to viewer until they respond
+            rsvp_status='pending'
+        )
+        db.session.add(new_member)
+        db.session.commit()
+    
+    return jsonify(response_data), 200
+
 @trips_bp.route('/<trip_id>/members', methods=['GET'])
 @authenticate_token
 @is_trip_member()
@@ -206,3 +246,20 @@ def remove_trip_member(trip_id, user_id):
     db.session.commit()
     
     return jsonify({'message': 'Member removed successfully'}), 200
+
+@trips_bp.route('/invitations', methods=['GET'])
+@authenticate_token
+def get_trip_invitations():
+    """Get all trip invitations for the current user (all RSVP statuses except 'going')"""
+    user_id = request.user_id
+    
+    # Find all trips where the user is a member with any status except "going"
+    non_going_members = TripMember.query.filter(
+        TripMember.user_id == user_id,
+        TripMember.rsvp_status.in_(['pending', 'maybe', 'no'])
+    ).all()
+    
+    trip_ids = [tm.trip_id for tm in non_going_members]
+    trips = Trip.query.filter(Trip.id.in_(trip_ids)).all()
+    
+    return jsonify([trip.to_dict() for trip in trips]), 200

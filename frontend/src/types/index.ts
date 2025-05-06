@@ -1,4 +1,4 @@
-export type RSVPStatus = 'going' | 'maybe' | 'not_going';
+export type RSVPStatus = 'going' | 'maybe' | 'not_going' | 'pending' | 'waitlist';
 
 export type UserRole = 'planner' | 'guest' | 'viewer';
 
@@ -161,4 +161,19 @@ export type ActivityFeedItem = {
   content: string;
   timestamp: string;
   metadata?: any;
+};
+
+export type Document = {
+  id: string;
+  trip_id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  document_type: 'travel' | 'accommodation';
+  is_public: boolean;
+  created_at: string;
+  updated_at?: string;
 };

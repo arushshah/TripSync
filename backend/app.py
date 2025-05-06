@@ -2,8 +2,20 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
-from db import db
+from db import db, get_database_url
 from middleware.auth import authenticate_token
+
+# Explicitly import all models to ensure they're registered with SQLAlchemy
+from models.document import Document
+from models.expense import Expense
+from models.itinerary import ItineraryItem
+from models.map import MapMarker
+from models.poll import Poll
+from models.todo import TodoItem
+from models.trip import Trip, TripMember
+from models.user import User
+
+# Import route blueprints
 from routes.trips import trips_bp
 from routes.users import users_bp
 from routes.rsvp import rsvp_bp
@@ -23,16 +35,23 @@ app = Flask(__name__)
 # Disable strict URL trailing slash handling to prevent redirects on OPTIONS requests
 app.url_map.strict_slashes = False
 
-# Allow all origins by default - will be overridden by more specific settings
-CORS(app)
+# Configure CORS properly with simpler, more consistent settings
+CORS(app, 
+     origins=["http://localhost:3000", "https://tripsync-gamma.vercel.app"],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
-# Explicitly handle OPTIONS requests for the endpoint that's failing
-@app.route('/api/users/check-phone', methods=['OPTIONS'])
-def options_check_phone():
+# Simplified global OPTIONS handler for all routes
+@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
+@app.route('/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
     response = make_response()
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+    response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    response.headers.add('Access-Control-Max-Age', '3600')
     return response, 204
 
 # Apply CORS headers to all responses
@@ -65,16 +84,10 @@ def add_cors_headers(response):
     
     return response
 
-# Configure database with better error handling
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    print("ERROR: DATABASE_URL environment variable is not set!")
+# Configure database with environment-based settings
+database_url = get_database_url()
 
-# If using pg8000 driver instead of psycopg2
-if database_url and database_url.startswith('postgres://'):
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
-
-# Set the modified URL
+# Set the database URI in the Flask app config
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {

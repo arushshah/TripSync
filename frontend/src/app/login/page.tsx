@@ -2,15 +2,16 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../lib/auth/AuthProvider';
-import { ConfirmationResult } from 'firebase/auth';
-import { Header } from '../../components/Header';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../components/ui/card';
+import { Header } from '../../components/Header';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { ConfirmationResult } from 'firebase/auth';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth/AuthProvider';
+import { PhoneNumberInput } from '../../components/PhoneNumberInput';
 
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -20,7 +21,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   
-  const { startPhoneAuth, confirmOtp } = useAuth();
+  const { startPhoneAuth, confirmOtp, logout } = useAuth();
   const router = useRouter();
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
@@ -29,21 +30,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Format phone number to E.164 format
-      const formattedPhoneNumber = formatPhoneNumber(phoneNumber);
-      
-      // Check if the phone number exists in the database
-      const { exists } = await api.checkPhoneExists(formattedPhoneNumber);
+      // First, check if the phone number exists in the database
+      // BEFORE we begin any Firebase authentication
+      const { exists } = await api.checkPhoneExists(phoneNumber);
       
       if (!exists) {
-        // If phone number doesn't exist, redirect to registration page
-        // Add phone number as a query parameter to prefill the form
-        router.push(`/register?phone=${encodeURIComponent(formattedPhoneNumber)}`);
+        // If phone number doesn't exist, redirect to registration page with the phone number
+        console.log('User not found, redirecting to registration');
+        router.push(`/register?phone=${encodeURIComponent(phoneNumber)}`);
         return;
       }
       
-      // Proceed with phone authentication since the user exists
-      const confirmationResult = await startPhoneAuth(formattedPhoneNumber);
+      // Only proceed with phone authentication if the user exists in our database
+      console.log('User found, sending OTP');
+      const confirmationResult = await startPhoneAuth(phoneNumber);
       
       if (confirmationResult) {
         setConfirmation(confirmationResult);
@@ -52,6 +52,7 @@ export default function LoginPage() {
         setError('Failed to send verification code. Please try again.');
       }
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.message || 'An error occurred during authentication');
     } finally {
       setLoading(false);
@@ -70,31 +71,24 @@ export default function LoginPage() {
         return;
       }
 
+      // Verify the OTP with Firebase
       const user = await confirmOtp(confirmation, otp);
       
-      if (user) {
-        router.push('/dashboard');
-      } else {
+      if (!user) {
         setError('Invalid verification code. Please try again.');
+        return;
       }
+      
+      // We've already verified the user exists in our database during handlePhoneSubmit
+      // So we can directly proceed to dashboard after successful OTP verification
+      router.push('/dashboard');
+      
     } catch (err: any) {
+      console.error("OTP verification error:", err);
       setError(err.message || 'An error occurred during verification');
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatPhoneNumber = (phone: string): string => {
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, '');
-    
-    // Ensure it has the + prefix if not already present
-    if (!digits.startsWith('+')) {
-      // Assuming US number if no country code provided
-      return `+1${digits}`;
-    }
-    
-    return digits;
   };
 
   const handleResendOtp = async () => {
@@ -102,8 +96,7 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      const formattedPhoneNumber = formatPhoneNumber(phoneNumber);
-      const confirmationResult = await startPhoneAuth(formattedPhoneNumber);
+      const confirmationResult = await startPhoneAuth(phoneNumber);
       
       if (confirmationResult) {
         setConfirmation(confirmationResult);
@@ -141,20 +134,12 @@ export default function LoginPage() {
               
               {step === 'phone' ? (
                 <form onSubmit={handlePhoneSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phoneNumber">Phone Number</Label>
-                    <Input
-                      id="phoneNumber"
-                      type="tel"
-                      placeholder="+1 (555) 123-4567"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enter your phone number with country code
-                    </p>
-                  </div>
+                  <PhoneNumberInput
+                    value={phoneNumber}
+                    onChange={setPhoneNumber}
+                    required
+                    helperText="We'll send a verification code to this number"
+                  />
                   
                   {/* Invisible recaptcha container */}
                   <div id="recaptcha-container"></div>

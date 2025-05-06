@@ -1,10 +1,12 @@
 from db import db
 from sqlalchemy.sql import func
+import uuid
 
 class User(db.Model):
     __tablename__ = 'users'
     
-    id = db.Column(db.String(40), primary_key=True)  # Firebase UID
+    id = db.Column(db.String(40), primary_key=True, default=lambda: str(uuid.uuid4()))
+    firebase_uid = db.Column(db.String(40), unique=True, nullable=False)
     phone_number = db.Column(db.String(15), unique=True, nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
@@ -22,6 +24,7 @@ class User(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'firebase_uid': self.firebase_uid,
             'phone_number': self.phone_number,
             'first_name': self.first_name,
             'last_name': self.last_name,

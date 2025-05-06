@@ -120,6 +120,10 @@ export class ApiClient {
     return this.request<any[]>('/trips');
   }
   
+  async getInvitations() {
+    return this.request<any[]>('/trips/invitations');
+  }
+  
   async getTripById(tripId: string) {
     return this.request<any>(`/trips/${tripId}`);
   }
@@ -149,6 +153,13 @@ export class ApiClient {
     return this.request<any>(`/rsvp/${tripId}`, 'POST', { status });
   }
   
+  async updateRSVPStatus(tripId: string, memberId: string, status: string) {
+    return this.request<any>(`/rsvp/${tripId}/update`, 'POST', { 
+      member_id: memberId,
+      status 
+    });
+  }
+  
   async getRsvpSummary(tripId: string) {
     return this.request<any>(`/rsvp/summary/${tripId}`);
   }
@@ -169,6 +180,22 @@ export class ApiClient {
   
   async getAccommodationDocuments(tripId: string) {
     return this.request<any>(`/documents/accommodation/${tripId}`);
+  }
+
+  async getDocuments(tripId: string, documentType: string) {
+    return this.request<Document[]>(`/documents/${tripId}?type=${documentType}`);
+  }
+  
+  async uploadDocument(tripId: string, documentData: any) {
+    return this.request<Document>(`/documents/${tripId}`, 'POST', documentData);
+  }
+  
+  async updateDocument(tripId: string, documentId: string, updates: any) {
+    return this.request<Document>(`/documents/${tripId}/${documentId}`, 'PUT', updates);
+  }
+  
+  async deleteDocument(tripId: string, documentId: string) {
+    return this.request<void>(`/documents/${tripId}/${documentId}`, 'DELETE');
   }
   
   // Todo endpoints

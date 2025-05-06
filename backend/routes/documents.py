@@ -14,11 +14,16 @@ def get_documents(trip_id):
     """Get all documents for a trip"""
     document_type = request.args.get('type')
     
+    # Base query
     query = Document.query.filter_by(trip_id=trip_id)
     
+    # Filter by document type if provided
     if document_type in ['travel', 'accommodation']:
         query = query.filter_by(document_type=document_type)
         
+    # Only show documents that are either public or owned by the requesting user
+    query = query.filter((Document.is_public == True) | (Document.user_id == request.user_id))
+    
     documents = query.order_by(Document.created_at.desc()).all()
     
     return jsonify([doc.to_dict() for doc in documents]), 200
@@ -53,7 +58,8 @@ def upload_document(trip_id):
         file_type=data['file_type'],
         file_size=data['file_size'],
         document_type=data['document_type'],
-        description=data.get('description')
+        description=data.get('description'),
+        is_public=data.get('is_public', True)  # Default to public if not specified
     )
     
     db.session.add(document)
@@ -70,6 +76,13 @@ def get_document(trip_id, document_id):
     
     if not document:
         return jsonify({'error': 'Document not found'}), 404
+    
+    # Check if user has permission to view this document
+    if not document.is_public and document.user_id != request.user_id:
+        # Check if user is a trip planner (they can see all documents)
+        trip_member = request.trip_member
+        if trip_member.role != 'planner':
+            return jsonify({'error': 'You do not have permission to view this document'}), 403
         
     return jsonify(document.to_dict()), 200
 
@@ -100,6 +113,9 @@ def update_document(trip_id, document_id):
         if data['document_type'] not in ['travel', 'accommodation']:
             return jsonify({'error': 'Invalid document type. Must be travel or accommodation'}), 400
         document.document_type = data['document_type']
+    
+    if 'is_public' in data:
+        document.is_public = data['is_public']
         
     db.session.commit()
     
@@ -119,9 +135,16 @@ def delete_document(trip_id, document_id):
     trip_member = request.trip_member  # Set by is_trip_member middleware
     if document.user_id != request.user_id and trip_member.role != 'planner':
         return jsonify({'error': 'You do not have permission to delete this document'}), 403
-        
-    # In a production app, you would also delete the file from storage
+    
+    # Store file URL for response
+    file_url = document.file_url
+    
+    # Delete the document record from the database
     db.session.delete(document)
     db.session.commit()
     
-    return jsonify({'message': 'Document deleted successfully'}), 200
+    # Return success response with file_url to help client clean up storage if needed
+    return jsonify({
+        'message': 'Document deleted successfully',
+        'file_url': file_url
+    }), 200

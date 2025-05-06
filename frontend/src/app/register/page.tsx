@@ -12,6 +12,7 @@ import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, 
 import app from '../../lib/firebase';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { PhoneNumberInput } from '../../components/PhoneNumberInput';
 
 // Add RecaptchaVerifier to the Window interface
 declare global {
@@ -30,7 +31,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const router = useRouter();
-  const { updateUserProfile } = useAuth();
+  const { updateUserProfile, confirmOtp, startPhoneAuth } = useAuth();
   
   // Extract the phone number from URL query parameters if available
   React.useEffect(() => {
@@ -44,36 +45,20 @@ export default function RegisterPage() {
     }
   }, []);
 
-  // Format phone number to E.164
-  const formatPhoneNumber = (phone: string): string => {
-    const digits = phone.replace(/\D/g, '');
-    if (!digits.startsWith('+')) {
-      return `+1${digits}`;
-    }
-    return digits;
-  };
-
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const auth = getAuth(app);
+      // Use startPhoneAuth from AuthProvider for consistency
+      const confirmationResult = await startPhoneAuth(phoneNumber);
       
-      // Reset recaptchaVerifier if it exists
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+      if (confirmationResult) {
+        setConfirmation(confirmationResult);
+        setStep('otp');
+      } else {
+        setError('Failed to send verification code. Please try again.');
       }
-      
-      // Create new recaptchaVerifier
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-      });
-      
-      const formattedPhone = formatPhoneNumber(phoneNumber);
-      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
-      setConfirmation(confirmationResult);
-      setStep('otp');
     } catch (err: any) {
       console.error('Error sending code:', err);
       setError(err.message || 'Failed to send verification code.');
@@ -91,22 +76,28 @@ export default function RegisterPage() {
         throw new Error("Verification session expired. Please try again.");
       }
       
-      const result: UserCredential = await confirmation.confirm(otp);
-      const user = result.user;
+      // Simply confirm the OTP with Firebase - no database validation needed
+      // since we're explicitly creating a new user
+      const user = await confirmOtp(confirmation, otp);
+      
+      if (!user) {
+        throw new Error("Failed to verify code. Please try again.");
+      }
+      
       const uid = user.uid;
       
       try {
-        // Update Firebase user profile with first and last name - pass the user object directly
+        // Update Firebase user profile with first and last name
         await updateUserProfile({
           firstName,
           lastName,
-          user // Pass the user object from the authentication result
+          user
         });
         
-        // Call backend API to register user using our API client
+        // Call backend API to register user in our database
         await api.post('/users/register', {
           uid,
-          phone_number: formatPhoneNumber(phoneNumber),
+          phone_number: phoneNumber, // Already formatted with country code from PhoneNumberInput
           first_name: firstName,
           last_name: lastName,
         });
@@ -152,11 +143,12 @@ export default function RegisterPage() {
                     <Label htmlFor="lastName">Last Name</Label>
                     <Input id="lastName" value={lastName} onChange={e => setLastName(e.target.value)} required />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phoneNumber">Phone Number</Label>
-                    <Input id="phoneNumber" type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required placeholder="+1 (555) 123-4567" />
-                    <p className="text-xs text-muted-foreground">Enter your phone number with country code</p>
-                  </div>
+                  <PhoneNumberInput
+                    value={phoneNumber}
+                    onChange={setPhoneNumber}
+                    required
+                    helperText="We'll send a verification code to this number"
+                  />
                   <div id="recaptcha-container"></div>
                   <Button type="submit" className="w-full" disabled={loading || !firstName || !lastName || !phoneNumber}>
                     {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : 'Send Verification Code'}

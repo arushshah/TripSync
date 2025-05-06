@@ -80,18 +80,19 @@ def authenticate_token(f=None):
             # Verify the ID token and get user info
             token = auth_header.split('Bearer ')[1]
             decoded_token = auth.verify_id_token(token)
-            user_id = decoded_token['uid']
+            firebase_uid = decoded_token['uid']
             
-            # Add the user ID to the request for route handlers to use
-            request.user_id = user_id
-            request.user_phone = decoded_token.get('phone_number')
-            
-            # Check if user exists in our database
+            # Look up the user in our database using the Firebase UID
             from models.user import User
             
-            user = User.query.get(user_id)
+            user = User.query.filter_by(firebase_uid=firebase_uid).first()
             if not user:
                 return jsonify({'error': 'User account not found. Please complete registration.', 'code': 'REGISTRATION_REQUIRED'}), 403
+            
+            # Add the user's internal ID and firebase UID to the request
+            request.user_id = user.id  # This is our internal user ID
+            request.firebase_uid = firebase_uid
+            request.user_phone = decoded_token.get('phone_number')
             
             # Add user to request object for convenience in route handlers
             request.user = user
@@ -114,19 +115,20 @@ def authenticate_token(f=None):
         try:
             # Verify the ID token and get user info
             decoded_token = auth.verify_id_token(token)
-            user_id = decoded_token['uid']
+            firebase_uid = decoded_token['uid']
             
-            # Add the user ID to the request for route handlers to use
-            request.user_id = user_id
-            request.user_phone = decoded_token.get('phone_number')
-            
-            # Check if user exists in our database
+            # Look up the user in our database using the Firebase UID
             from models.user import User
             
-            user = User.query.get(user_id)
+            user = User.query.filter_by(firebase_uid=firebase_uid).first()
             if not user:
                 # User exists in Firebase but not in our database
                 return jsonify({'error': 'User account not found. Please complete registration.', 'code': 'REGISTRATION_REQUIRED'}), 403
+            
+            # Add the user's internal ID and firebase UID to the request
+            request.user_id = user.id  # This is our internal user ID
+            request.firebase_uid = firebase_uid
+            request.user_phone = decoded_token.get('phone_number')
             
             # Add user to request object for convenience in route handlers
             request.user = user

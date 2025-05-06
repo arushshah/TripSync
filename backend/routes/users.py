@@ -9,21 +9,14 @@ users_bp = Blueprint('users', __name__)
 @authenticate_token
 def get_profile():
     """Get the current user's profile"""
-    user = User.query.get(request.user_id)
+    # Since authenticate_token middleware now looks up the user by firebase_uid
+    # and sets request.user_id to the internal ID, we can directly use this ID
+    # The User object is also attached to request.user for convenience
     
-    if not user:
-        # Create a new user if they don't exist
-        user = User(
-            id=request.user_id,
-            phone_number=request.user_phone,
-            first_name=request.user_first_name,
-            last_name=request.user_last_name,
-            profile_photo=None
-        )
-        db.session.add(user)
-        db.session.commit()
+    if not request.user:
+        return jsonify({'error': 'User not found'}), 404
     
-    return jsonify(user.to_dict()), 200
+    return jsonify(request.user.to_dict()), 200
 
 @users_bp.route('/profile', methods=['PUT'])
 @authenticate_token
@@ -83,9 +76,9 @@ def register_user():
     phone_number = data.get('phone_number')
     first_name = data.get('first_name')
     last_name = data.get('last_name')
-    uid = data.get('uid')  # Firebase UID, should be provided by frontend after verification
+    firebase_uid = data.get('uid')  # Firebase UID from authentication
 
-    if not all([phone_number, first_name, last_name, uid]):
+    if not all([phone_number, first_name, last_name, firebase_uid]):
         return jsonify({'error': 'Missing required fields'}), 400
 
     existing = User.query.filter_by(phone_number=phone_number).first()
@@ -93,7 +86,7 @@ def register_user():
         return jsonify({'error': 'User already exists'}), 409
 
     user = User(
-        id=uid,
+        firebase_uid=firebase_uid,  # Store Firebase UID separately
         phone_number=phone_number,
         first_name=first_name,
         last_name=last_name
@@ -104,6 +97,9 @@ def register_user():
 
 @users_bp.route('/check-phone', methods=['POST', 'OPTIONS'])
 def check_phone_exists():
+    # Handle OPTIONS request for CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 204
 
     # For POST requests
     if request.is_json:

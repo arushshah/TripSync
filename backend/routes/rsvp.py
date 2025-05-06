@@ -214,3 +214,179 @@ def get_rsvp_summary(trip_id):
         'pending': pending,
         'waitlist': waitlist,
     }), 200
+
+@rsvp_bp.route('/<trip_id>/update', methods=['POST'])
+@authenticate_token
+def update_rsvp(trip_id):
+    """Update RSVP status for a trip member"""
+    data = request.json
+    
+    if not data or 'status' not in data:
+        return jsonify({'error': 'Missing required field: status'}), 400
+    
+    status = data['status']
+    member_id = data.get('member_id')
+    
+    if status not in ['going', 'maybe', 'not_going', 'pending']:
+        return jsonify({'error': 'Invalid status. Must be going, maybe, not_going, or pending'}), 400
+    
+
+    member = TripMember.query.filter_by(
+        trip_id=trip_id,
+        user_id=request.user_id
+    ).first()
+    
+    if not member:
+        return jsonify({'error': 'You are not a member of this trip'}), 404
+    
+    # Map frontend not_going to backend no
+    rsvp_status = status
+    if status == 'not_going':
+        rsvp_status = 'no'
+    
+    # Update RSVP status
+    member.rsvp_status = rsvp_status
+    
+    # If going, check for guest limit
+    trip = Trip.query.get(trip_id)
+    
+    # Only need to run waitlist logic if the status is 'going'
+    if status == 'going' and trip.guest_limit:
+        current_going = TripMember.query.filter_by(
+            trip_id=trip_id, 
+            rsvp_status='going'
+        ).filter(TripMember.id != member.id).count()
+        
+        # +1 for the current member who is going
+        if (current_going + 1) > trip.guest_limit:
+            # Calculate waitlist position
+            max_position = db.session.query(func.max(TripMember.waitlist_position)).filter_by(
+                trip_id=trip_id
+            ).scalar() or 0
+            
+            member.waitlist_position = max_position + 1
+            waitlisted = True
+        else:
+            member.waitlist_position = None
+            waitlisted = False
+    elif status != 'going':
+        # Clear waitlist position if not going
+        member.waitlist_position = None
+        waitlisted = False
+    
+    member.responded_at = datetime.datetime.utcnow()
+    db.session.commit()
+    
+    # If appropriate, assign appropriate role based on RSVP
+    if status == 'going':
+        member.role = 'guest'  # Full access
+    elif status in ['maybe', 'not_going']:
+        member.role = 'viewer'  # Read-only access
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': f'RSVP updated to {status}',
+        'waitlisted': waitlisted if 'waitlisted' in locals() else False,
+        'waitlist_position': member.waitlist_position
+    }), 200
+
+@rsvp_bp.route('/<trip_id>', methods=['POST'])
+@authenticate_token
+def respond_to_invitation(trip_id):
+    """Respond to a trip invitation with going/maybe/not_going"""
+    data = request.json
+    print(request)
+    if not data or 'status' not in data:
+        return jsonify({'error': 'Missing required field: status'}), 400
+    
+    status = data['status']
+    
+    if status not in ['going', 'maybe', 'not_going']:
+        return jsonify({'error': 'Invalid status. Must be going, maybe, or not_going'}), 400
+    
+    # Find the member record
+    member = TripMember.query.filter_by(
+        trip_id=trip_id,
+        user_id=request.user_id
+    ).first()
+    
+    if not member:
+        # If member doesn't exist yet, create a new pending member
+        member = TripMember(
+            trip_id=trip_id,
+            user_id=request.user_id,
+            role='viewer',  # Default to viewer
+            rsvp_status='pending'
+        )
+        db.session.add(member)
+        db.session.commit()
+    
+    trip = Trip.query.get(trip_id)
+    if not trip:
+        return jsonify({'error': 'Trip not found'}), 404
+    
+    # Map frontend not_going to backend no
+    rsvp_status = 'no' if status == 'not_going' else status
+    
+    # Update RSVP status
+    member.rsvp_status = rsvp_status
+    
+    # Set appropriate role based on RSVP status
+    if status == 'going':
+        member.role = 'guest'  # Full access
+    elif status in ['maybe', 'not_going']:
+        member.role = 'viewer'  # Read-only access
+        
+    # Handle waitlist logic for "going" responses
+    waitlisted = False
+    if status == 'going' and trip.guest_limit:
+        current_going = TripMember.query.filter_by(
+            trip_id=trip_id, 
+            rsvp_status='going'
+        ).filter(TripMember.id != member.id).count()
+        
+        # +1 for the current member who is going
+        if (current_going + 1) > trip.guest_limit:
+            # Calculate waitlist position
+            max_position = db.session.query(func.max(TripMember.waitlist_position)).filter_by(
+                trip_id=trip_id
+            ).scalar() or 0
+            
+            member.waitlist_position = max_position + 1
+            waitlisted = True
+        else:
+            member.waitlist_position = None
+    elif status != 'going':
+        # Clear waitlist position if not going
+        member.waitlist_position = None
+    
+    member.responded_at = datetime.datetime.utcnow()
+    db.session.commit()
+    
+    # If user responded "no", check if anyone can be moved off waitlist
+    if status == 'not_going' and trip.guest_limit:
+        going_count = TripMember.query.filter_by(
+            trip_id=trip_id, 
+            rsvp_status='going',
+            waitlist_position=None
+        ).count()
+        
+        if going_count < trip.guest_limit:
+            # Find first person on waitlist
+            waitlist_member = TripMember.query.filter_by(
+                trip_id=trip_id, 
+                rsvp_status='going'
+            ).filter(TripMember.waitlist_position.isnot(None)).order_by(
+                TripMember.waitlist_position
+            ).first()
+            
+            if waitlist_member:
+                waitlist_member.waitlist_position = None
+                db.session.commit()
+    
+    return jsonify({
+        'message': f'RSVP updated to {status}',
+        'waitlisted': waitlisted,
+        'waitlist_position': member.waitlist_position
+    }), 200

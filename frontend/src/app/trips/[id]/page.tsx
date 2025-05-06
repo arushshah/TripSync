@@ -3,44 +3,47 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/auth/AuthProvider';
-import { Trip, TripMember, ActivityFeedItem } from '../../../types';
+import { Trip, TripMember, ActivityFeedItem, RSVPStatus } from '../../../types';
 import { api } from '../../../lib/api';
 import { Header } from '../../../components/Header';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { CalendarIcon, MapPinIcon, Clipboard, Share2, FileIcon, Building, CalendarCheck, CheckSquare, MapPin, Wallet } from 'lucide-react';
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
+import { 
+  CalendarIcon, MapPinIcon, Clipboard, Share2, FileIcon, Building, 
+  CalendarCheck, CheckSquare, MapPin, Wallet, Mail, Check, 
+  ThumbsUp, HelpCircle, ThumbsDown, Users, Clock, Calendar, Activity 
+} from 'lucide-react';
 import { format } from 'date-fns';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '../../../components/ui/dialog';
-import { Input } from '../../../components/ui/input';
+import { TravelDocumentsTab } from '../../../components/TravelDocumentsTab';
+import { LodgingDocumentsTab } from '../../../components/LodgingDocumentsTab';
+import { Avatar } from '../../../components/ui/avatar';
+import { AvatarFallback } from '../../../components/ui/avatar';
+import { Badge } from '../../../components/ui/badge';
 
 export default function TripDetails() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, user_id, loading } = useAuth();
   
   const [trip, setTrip] = useState<Trip | null>(null);
   const [members, setMembers] = useState<TripMember[]>([]);
   const [userRole, setUserRole] = useState<'planner' | 'guest' | 'viewer' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState('overview');
   const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
   const [inviteLink, setInviteLink] = useState('');
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [pendingRSVP, setPendingRSVP] = useState<boolean>(false);
+  const [isRSVPSubmitting, setIsRSVPSubmitting] = useState<boolean>(false);
   
   const tripId = params.id as string;
 
   useEffect(() => {
+    console.log(user);
+    console.log(tripId);
+    console.log(user_id);
     if (!loading) {
       if (!user) {
         router.push('/login');
@@ -48,7 +51,7 @@ export default function TripDetails() {
         fetchTripData();
       }
     }
-  }, [loading, user, router, tripId]);
+  }, [loading, user, user_id, router, tripId]);
   
   useEffect(() => {
     if (tripId) {
@@ -56,47 +59,53 @@ export default function TripDetails() {
       setInviteLink(link);
     }
   }, [tripId]);
+  
+  useEffect(() => {
+    // Check if the current user has pending status
+    if (user_id && members.length > 0) {
+      const currentMember = members.find(member => member.user_id === user_id);
+      if (currentMember && currentMember.rsvp_status === 'pending') {
+        setPendingRSVP(true);
+      } else {
+        setPendingRSVP(false);
+      }
+    }
+  }, [user_id, members]);
 
   const fetchTripData = async () => {
-    if (!user || !tripId) return;
+    console.log("waiting here2...");
+    if (!user || !tripId || !user_id) return;
 
     try {
       setIsLoading(true);
       
       // Use API client to fetch trip data
+      console.log("waiting here...");
       const tripData = await api.getTripById(tripId);
+      console.log("tripData: " + tripData);
       setTrip(tripData);
 
       // Get user role from trip members
-      const currentMember = tripData.members?.find((member: any) => member.user_id === user.uid);
+      // Use the user_id which matches the backend's user_id
+      const currentMember = tripData.members?.find(member => member.user_id === user_id);
+      console.log("currentmember: " + currentMember);
       if (currentMember) {
         setUserRole(currentMember.role as 'planner' | 'guest' | 'viewer');
       } else {
+        console.error('User is not a member of this trip', { 
+          user_id,
+          members: tripData.members
+        });
         // This shouldn't happen with proper API auth, but just in case
         router.push('/dashboard');
       }
 
       setMembers(tripData.members || []);
-
-    } catch (err: any) {
-      console.error('Error fetching trip data:', err);
-      setError(err.message || 'Failed to load trip data');
+    } catch (error) {
+      console.error('Failed to fetch trip data', error);
+      setError('Failed to fetch trip data');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleInvite = async () => {
-    if (!user || !tripId) return;
-
-    try {
-      const response = await api.generateTripInvite(tripId);
-      navigator.clipboard.writeText(response.invite_url);
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 3000);
-    } catch (err: any) {
-      console.error('Error generating invite:', err);
-      alert(err.message || 'Failed to generate invite link');
     }
   };
 
@@ -104,265 +113,359 @@ export default function TripDetails() {
     return `${window.location.origin}/trips/invite/${tripId}`;
   };
 
-  const copyInviteLink = () => {
-    navigator.clipboard.writeText(inviteLink);
-    setInviteCopied(true);
-    setTimeout(() => setInviteCopied(false), 3000);
-  };
-  
-  // Function to get initials for avatar
-  const getInitials = (name: string) => {
-    if (!name) return 'G';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const handleCopyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    });
   };
 
-  if (loading || isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="flex flex-col items-center">
-            <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-            <p className="mt-4 text-muted-foreground">Loading trip details...</p>
-          </div>
-        </div>
-      </div>
-    );
+  const handleRSVP = async (status: RSVPStatus) => {
+    if (!user || !tripId || !user_id) return;
+
+    try {
+      setIsRSVPSubmitting(true);
+      await api.updateRSVPStatus(tripId, user_id, status);
+      const updatedMembers = members.map(member => 
+        member.user_id === user_id ? { ...member, rsvp_status: status } : member
+      );
+      setMembers(updatedMembers);
+      setPendingRSVP(false);
+    } catch (error) {
+      console.error('Failed to update RSVP status', error);
+      setError('Failed to update RSVP status');
+    } finally {
+      setIsRSVPSubmitting(false);
+    }
+  };
+
+  // Helper function to get the RSVP badge color
+  const getRSVPBadgeColor = (status: RSVPStatus) => {
+    switch (status) {
+      case 'going': return 'bg-green-500';
+      case 'not_going': return 'bg-red-500';
+      case 'maybe': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  // Helper function to get the RSVP icon
+  const getRSVPIcon = (status: RSVPStatus) => {
+    switch (status) {
+      case 'going': return <ThumbsUp className="h-4 w-4" />;
+      case 'not_going': return <ThumbsDown className="h-4 w-4" />;
+      case 'maybe': return <HelpCircle className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
   }
 
   if (error) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Card className="mx-auto w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-destructive">Error</CardTitle>
-            <CardDescription>{error}</CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button onClick={() => router.push('/dashboard')} className="w-full">
-              Return to Dashboard
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
+    return <div>{error}</div>;
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div>
       <Header />
-      <main className="container mx-auto max-w-4xl px-4 py-6">
-        {trip && (
-          <div className="space-y-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">{trip.name}</h1>
-                <div className="flex items-center gap-2 mt-1 text-muted-foreground">
-                  <MapPinIcon className="h-4 w-4" />
-                  <span>{trip.location}</span>
-                </div>
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h1 className="text-3xl font-bold">{trip?.name}</h1>
+            <p className="text-gray-500">{trip?.description}</p>
+            <div className="flex items-center mt-2 space-x-4">
+              <div className="flex items-center">
+                <Calendar className="h-5 w-5 mr-2" />
+                <span>{format(new Date(trip?.start_date || ''), 'MMM d, yyyy')}</span>
+                {trip?.end_date && (
+                  <span> - {format(new Date(trip?.end_date || ''), 'MMM d, yyyy')}</span>
+                )}
               </div>
-              
-              {userRole === 'planner' && (
-                <Button 
-                  variant="teal"
-                  onClick={() => router.push(`/trips/${tripId}/edit`)}
-                >
-                  Edit Trip
-                </Button>
-              )}
+              <div className="flex items-center">
+                <MapPin className="h-5 w-5 mr-2" />
+                <span>{trip?.location}</span>
+              </div>
             </div>
+          </div>
+          <div className="flex space-x-2">
+            {userRole === 'planner' && (
+              <Button 
+                variant="outline" 
+                onClick={() => router.push(`/trips/${tripId}/edit`)}
+              >
+                Edit Trip
+              </Button>
+            )}
+            <Button 
+              onClick={handleCopyInviteLink}
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              {inviteCopied ? 'Copied!' : 'Share'}
+            </Button>
+          </div>
+        </div>
 
-            <Tabs defaultValue="details" onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 lg:w-auto">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="guests">Guests</TabsTrigger>
-                <TabsTrigger value="travel-docs">Travel</TabsTrigger>
-                <TabsTrigger value="accommodation-docs">Lodging</TabsTrigger>
-                <TabsTrigger value="itinerary">Itinerary</TabsTrigger>
-                <TabsTrigger value="todo">To-Do</TabsTrigger>
-                <TabsTrigger value="map">Map</TabsTrigger>
-                <TabsTrigger value="expenses">Expenses</TabsTrigger>
+        {/* Responsive tabulated menu with horizontal scrolling on smaller screens */}
+        <div className="mb-4 flex justify-center w-full">
+          <div className="w-full max-w-full overflow-x-auto">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="w-max min-w-full flex-nowrap whitespace-nowrap px-1">
+                <TabsTrigger value="overview">
+                  <CalendarIcon className="h-4 w-4 mr-2" /> Overview
+                </TabsTrigger>
+                <TabsTrigger value="guests">
+                  <Users className="h-4 w-4 mr-2" /> Guests
+                </TabsTrigger>
+                <TabsTrigger value="travel">
+                  <FileIcon className="h-4 w-4 mr-2" /> Travel
+                </TabsTrigger>
+                <TabsTrigger value="lodging">
+                  <Building className="h-4 w-4 mr-2" /> Lodging
+                </TabsTrigger>
+                <TabsTrigger value="itinerary">
+                  <CalendarCheck className="h-4 w-4 mr-2" /> Itinerary
+                </TabsTrigger>
+                <TabsTrigger value="expenses">
+                  <Wallet className="h-4 w-4 mr-2" /> Expenses
+                </TabsTrigger>
+                <TabsTrigger value="todos">
+                  <CheckSquare className="h-4 w-4 mr-2" /> To-dos
+                </TabsTrigger>
+                <TabsTrigger value="map">
+                  <MapPin className="h-4 w-4 mr-2" /> Map
+                </TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="details" className="space-y-6 mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Trip Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <div className="text-sm font-medium">Dates</div>
-                      <div className="flex items-center mt-1.5">
-                        <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                        {trip.start_date && trip.end_date ? (
-                          <span>
-                            {format(new Date(trip.start_date), 'MMM d')} - 
-                            {format(new Date(trip.end_date), 'MMM d, yyyy')}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">No dates set</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {trip.description && (
-                      <div>
-                        <div className="text-sm font-medium">About this trip</div>
-                        <p className="mt-1.5 whitespace-pre-line text-sm text-muted-foreground">
-                          {trip.description}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {trip.guest_limit && (
-                      <div>
-                        <div className="text-sm font-medium">Guest Limit</div>
-                        <p className="mt-1.5 text-sm text-muted-foreground">
-                          {trip.guest_limit} people
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+            </Tabs>
+          </div>
+        </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Invite Others</CardTitle>
-                    <CardDescription>Share this trip with friends and family</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap items-center gap-4">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button className="gap-2" variant="teal">
-                            <Share2 className="h-4 w-4" />
-                            Share Trip
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Share Trip</DialogTitle>
-                            <DialogDescription>
-                              Copy this link to invite others to join your trip
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="flex items-center space-x-2">
-                            <Input
-                              readOnly
-                              value={inviteLink}
-                              className="flex-1"
-                            />
-                            <Button
-                              onClick={copyInviteLink}
-                              variant="teal"
-                              className="shrink-0"
-                            >
-                              {inviteCopied ? "Copied!" : "Copy"}
-                            </Button>
-                          </div>
-                          <DialogFooter className="mt-4">
-                            <Button onClick={handleInvite}>Generate New Invite</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="guests" className="space-y-6 mt-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle>Guests</CardTitle>
-                      <CardDescription>People joining this trip</CardDescription>
-                    </div>
-                    <Button 
-                      variant="teal" 
-                      className="gap-2"
-                      onClick={handleInvite}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      Invite
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      <div>
-                        <h3 className="text-lg font-medium mb-3">Going ({members.filter(m => m.rsvp_status === 'going').length})</h3>
-                        {members
-                          .filter(member => member.rsvp_status === 'going')
-                          .map(member => (
-                            <div key={member.id} className="flex items-center justify-between py-2 border-b">
-                              <div className="flex items-center gap-3">
-                                <Avatar>
-                                  <AvatarFallback>
-                                    {getInitials(`${member.user?.first_name} ${member.user?.last_name}` || 'Guest')}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-medium">{member.user?.first_name}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {member.role === 'planner' ? 'Planner' : member.role === 'guest' ? 'Guest' : 'Viewer'}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {userRole === 'planner' && member.user_id !== user?.uid && (
-                                <Button variant="ghost" size="sm">
-                                  Manage
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                          
-                        {members.filter(m => m.rsvp_status === 'going').length === 0 && (
-                          <p className="text-sm text-muted-foreground">No confirmed guests yet</p>
-                        )}
-                      </div>
-                      
-                      {members.some(member => member.rsvp_status === 'maybe') && (
-                        <div>
-                          <h3 className="text-lg font-medium mb-3">Maybe ({members.filter(m => m.rsvp_status === 'maybe').length})</h3>
-                          {/* Similar layout as above for Maybe status members */}
-                        </div>
-                      )}
-                      
-                      {/* Not Going and Waitlist sections follow the same pattern */}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* The remaining tabs with "Coming Soon" placeholders */}
-              {['travel-docs', 'accommodation-docs', 'itinerary', 'todo', 'map', 'expenses'].map(tabValue => (
-                <TabsContent key={tabValue} value={tabValue} className="mt-6">
+        {/* Tab contents separated from the menu */}
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                {/* First Section: Trip Details */}
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Trip Details</h2>
                   <Card>
-                    <CardHeader>
-                      <CardTitle>
-                        {tabValue === 'travel-docs' && <div className="flex items-center gap-2"><FileIcon className="h-5 w-5" /> Travel Documents</div>}
-                        {tabValue === 'accommodation-docs' && <div className="flex items-center gap-2"><Building className="h-5 w-5" /> Accommodation</div>}
-                        {tabValue === 'itinerary' && <div className="flex items-center gap-2"><CalendarCheck className="h-5 w-5" /> Itinerary</div>}
-                        {tabValue === 'todo' && <div className="flex items-center gap-2"><CheckSquare className="h-5 w-5" /> To-Do List</div>}
-                        {tabValue === 'map' && <div className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Trip Map</div>}
-                        {tabValue === 'expenses' && <div className="flex items-center gap-2"><Wallet className="h-5 w-5" /> Expenses</div>}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex items-center justify-center py-12">
-                      <div className="text-center">
-                        <p className="text-lg text-muted-foreground">This feature is coming soon!</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          We're working on making your trip planning experience even better.
-                        </p>
+                    <CardContent className="p-6">
+                      <div className="grid gap-4">
+                        <div className="flex flex-col md:flex-row md:justify-between">
+                          <div>
+                            <h3 className="font-medium text-gray-500">Trip Name</h3>
+                            <p className="text-lg">{trip?.name}</p>
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-gray-500">Organizer</h3>
+                            <p className="text-lg">{members.find(m => m.role === 'planner')?.user?.first_name} {members.find(m => m.role === 'planner')?.user?.last_name}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col md:flex-row md:justify-between">
+                          <div>
+                            <h3 className="font-medium text-gray-500">Dates</h3>
+                            <p className="text-lg">
+                              {format(new Date(trip?.start_date || ''), 'MMMM d, yyyy')} 
+                              {trip?.end_date && <> - {format(new Date(trip?.end_date), 'MMMM d, yyyy')}</>}
+                            </p>
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-gray-500">Location</h3>
+                            <p className="text-lg">{trip?.location}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-gray-500">Description</h3>
+                          <p>{trip?.description}</p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </div>
-        )}
-      </main>
+                </div>
+                
+                {/* Second Section: User Status & RSVP */}
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Your Status</h2>
+                  <Card>
+                    <CardContent className="p-6">
+                      {/* Find current user from members array */}
+                      {(() => {
+                        const currentMember = members.find(m => m.user_id === user_id);
+                        if (!currentMember) return <p>Error: Could not find your trip membership</p>;
+                        
+                        // Check if user is the planner (can't change RSVP)
+                        const isPlanner = currentMember.role === 'planner';
+                        
+                        return (
+                          <div className="space-y-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                              <div>
+                                <h3 className="font-medium text-gray-500">Your RSVP Status</h3>
+                                <div className="mt-1 flex items-center">
+                                  <Badge className={`${getRSVPBadgeColor(currentMember.rsvp_status)} flex items-center`}>
+                                    {getRSVPIcon(currentMember.rsvp_status)}
+                                    <span className="ml-1">
+                                      {currentMember.rsvp_status === 'going' ? 'Going' : 
+                                       currentMember.rsvp_status === 'not_going' ? 'Not Going' : 
+                                       currentMember.rsvp_status === 'maybe' ? 'Maybe' : 
+                                       currentMember.rsvp_status === 'waitlist' ? 'Waitlisted' : 'Pending'}
+                                    </span>
+                                  </Badge>
+                                </div>
+                              </div>
+                              
+                              {!isPlanner && (
+                                <div className="mt-3 sm:mt-0">
+                                  <h3 className="font-medium text-gray-500 mb-1">Update Your Status</h3>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button 
+                                      size="sm"
+                                      variant={currentMember.rsvp_status === 'going' ? 'default' : 'outline'}
+                                      className={currentMember.rsvp_status === 'going' ? 'bg-green-600 hover:bg-green-700' : ''}
+                                      onClick={() => handleRSVP('going')}
+                                      disabled={isRSVPSubmitting}
+                                    >
+                                      <ThumbsUp className="h-4 w-4 mr-1" /> Going
+                                    </Button>
+                                    <Button 
+                                      size="sm"
+                                      variant={currentMember.rsvp_status === 'maybe' ? 'default' : 'outline'}
+                                      className={currentMember.rsvp_status === 'maybe' ? 'bg-yellow-500 hover:bg-yellow-600' : 'border-yellow-500 text-yellow-700 hover:bg-yellow-50'}
+                                      onClick={() => handleRSVP('maybe')}
+                                      disabled={isRSVPSubmitting}
+                                    >
+                                      <HelpCircle className="h-4 w-4 mr-1" /> Maybe
+                                    </Button>
+                                    <Button 
+                                      size="sm"
+                                      variant={currentMember.rsvp_status === 'not_going' ? 'default' : 'outline'}
+                                      className={currentMember.rsvp_status === 'not_going' ? 'bg-red-500 hover:bg-red-600' : 'border-red-500 text-red-700 hover:bg-red-50'}
+                                      onClick={() => handleRSVP('not_going')}
+                                      disabled={isRSVPSubmitting}
+                                    >
+                                      <ThumbsDown className="h-4 w-4 mr-1" /> Not Going
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {isPlanner && (
+                                <div className="mt-2 text-sm text-gray-500 italic">
+                                  As the trip organizer, you're automatically marked as going
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'travel' && (
+              <TravelDocumentsTab tripId={tripId} currentUserId={user_id || ''} userRole={userRole || 'viewer'} />
+            )}
+            
+            {activeTab === 'lodging' && (
+              <LodgingDocumentsTab tripId={tripId} currentUserId={user_id || ''} userRole={userRole || 'viewer'} />
+            )}
+
+            {activeTab === 'itinerary' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Trip Itinerary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Itinerary content will go here</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'guests' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Guest List</CardTitle>
+                  <CardDescription>Manage trip attendees</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {userRole === 'planner' && (
+                      <div className="mb-4">
+                        <Button onClick={handleCopyInviteLink}>
+                          <Mail className="h-4 w-4 mr-2" />
+                          {inviteCopied ? 'Invitation Link Copied!' : 'Invite Friends'}
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <div className="divide-y">
+                      {members.map(member => (
+                        <div key={member.user_id} className="py-3 flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <Avatar>
+                              <AvatarFallback>
+                                {member.user.first_name?.[0]}{member.user.last_name?.[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
+                              <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                            </div>
+                          </div>
+                          <Badge className={`${getRSVPBadgeColor(member.rsvp_status)} flex items-center`}>
+                            {getRSVPIcon(member.rsvp_status)}
+                            <span className="ml-1">
+                              {member.rsvp_status === 'going' ? 'Going' : 
+                               member.rsvp_status === 'not_going' ? 'Not Going' : 
+                               member.rsvp_status === 'maybe' ? 'Maybe' : 'Pending'}
+                            </span>
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  </CardContent>
+                </Card>
+            )}
+            
+            {activeTab === 'expenses' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Expenses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Expense tracking and splitting content will go here</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {activeTab === 'todos' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Todo List</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Todo list content will go here</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {activeTab === 'map' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Trip Map</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Map content will go here</p>
+                </CardContent>
+              </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
