@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { Trip } from '../../types';
@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 
-export default function Dashboard() {
+// Component that uses useSearchParams must be wrapped in Suspense
+function DashboardContent() {
   const { user, loading } = useAuth();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [invitations, setInvitations] = useState<Trip[]>([]);
@@ -189,5 +190,23 @@ export default function Dashboard() {
         </Tabs>
       </main>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="flex flex-col items-center">
+            <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

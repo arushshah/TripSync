@@ -9,12 +9,6 @@ const nextConfig = {
   compiler: {
     styledComponents: true,
   },
-  // Suppress specific hydration warnings related to DarkReader extension
-  experimental: {
-    runtime: 'nodejs',
-    serverComponents: true,
-    suppressHydrationWarning: true,
-  },
 };
 
 module.exports = nextConfig;

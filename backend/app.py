@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
-from db import db, get_database_url
+from db import db
 from middleware.auth import authenticate_token
 
 # Explicitly import all models to ensure they're registered with SQLAlchemy
@@ -84,11 +84,8 @@ def add_cors_headers(response):
     
     return response
 
-# Configure database with environment-based settings
-database_url = get_database_url()
-
 # Set the database URI in the Flask app config
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,  # Check connection before use
