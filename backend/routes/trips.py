@@ -224,7 +224,7 @@ def update_trip_member(trip_id, user_id):
         member.role = data['role']
         
     if 'rsvp_status' in data:
-        if data['rsvp_status'] not in ['going', 'maybe', 'no', 'pending']:
+        if data['rsvp_status'] not in ['going', 'maybe', 'not_going', 'pending']:
             return jsonify({'error': 'Invalid RSVP status. Must be going, maybe, no, or pending'}), 400
         member.rsvp_status = data['rsvp_status']
         
@@ -256,7 +256,7 @@ def get_trip_invitations():
     # Find all trips where the user is a member with any status except "going"
     non_going_members = TripMember.query.filter(
         TripMember.user_id == user_id,
-        TripMember.rsvp_status.in_(['pending', 'maybe', 'no'])
+        TripMember.rsvp_status.in_(['pending', 'maybe', 'not_going'])
     ).all()
     
     trip_ids = [tm.trip_id for tm in non_going_members]

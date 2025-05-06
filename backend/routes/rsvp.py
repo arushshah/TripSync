@@ -89,7 +89,7 @@ def respond_to_invite():
     trip_id = data['trip_id']
     response = data['response']
     
-    if response not in ['going', 'maybe', 'no']:
+    if response not in ['going', 'maybe', 'not_going']:
         return jsonify({'error': 'Invalid response. Must be going, maybe, or no'}), 400
     
     # Find the member record
@@ -139,7 +139,7 @@ def respond_to_invite():
     db.session.commit()
     
     # If user responded "no", check if anyone can be moved off waitlist
-    if response == 'no' and trip.guest_limit:
+    if response == 'not_going' and trip.guest_limit:
         going_count = TripMember.query.filter_by(
             trip_id=trip_id, 
             rsvp_status='going',
@@ -198,7 +198,7 @@ def get_rsvp_summary(trip_id):
     # Count RSVPs by status
     going = TripMember.query.filter_by(trip_id=trip_id, rsvp_status='going').count()
     maybe = TripMember.query.filter_by(trip_id=trip_id, rsvp_status='maybe').count()
-    no = TripMember.query.filter_by(trip_id=trip_id, rsvp_status='no').count()
+    no = TripMember.query.filter_by(trip_id=trip_id, rsvp_status='not_going').count()
     pending = TripMember.query.filter_by(trip_id=trip_id, rsvp_status='pending').count()
     
     # Count waitlisted people
@@ -210,7 +210,7 @@ def get_rsvp_summary(trip_id):
     return jsonify({
         'going': going,
         'maybe': maybe,
-        'no': no,
+        'not_going': not_going,
         'pending': pending,
         'waitlist': waitlist,
     }), 200
@@ -239,13 +239,8 @@ def update_rsvp(trip_id):
     if not member:
         return jsonify({'error': 'You are not a member of this trip'}), 404
     
-    # Map frontend not_going to backend no
-    rsvp_status = status
-    if status == 'not_going':
-        rsvp_status = 'no'
-    
     # Update RSVP status
-    member.rsvp_status = rsvp_status
+    member.rsvp_status = status
     
     # If going, check for guest limit
     trip = Trip.query.get(trip_id)
@@ -326,11 +321,7 @@ def respond_to_invitation(trip_id):
     if not trip:
         return jsonify({'error': 'Trip not found'}), 404
     
-    # Map frontend not_going to backend no
-    rsvp_status = 'no' if status == 'not_going' else status
-    
-    # Update RSVP status
-    member.rsvp_status = rsvp_status
+    member.rsvp_status = status
     
     # Set appropriate role based on RSVP status
     if status == 'going':
