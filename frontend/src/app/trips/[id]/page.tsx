@@ -309,7 +309,7 @@ export default function TripDetails() {
                                       {currentMember.rsvp_status === 'going' ? 'Going' : 
                                        currentMember.rsvp_status === 'not_going' ? 'Not Going' : 
                                        currentMember.rsvp_status === 'maybe' ? 'Maybe' : 
-                                       currentMember.rsvp_status === 'waitlist' ? 'Waitlisted' : 'Pending  '}
+                                       currentMember.rsvp_status === 'waitlist' ? 'Waitlisted' : 'Pending'}
                                     </span>
                                   </Badge> 
                                 </div>
