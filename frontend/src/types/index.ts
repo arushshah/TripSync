@@ -70,6 +70,7 @@ export type ItineraryDay = {
 export type ItineraryItem = {
   id: string;
   day_id: string;
+  date: string;
   title: string;
   description?: string;
   start_time?: string;

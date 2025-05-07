@@ -10,13 +10,15 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { 
-  CalendarIcon, MapPinIcon, Clipboard, Share2, FileIcon, Building, 
-  CalendarCheck, CheckSquare, MapPin, Wallet, Mail, Check, 
-  ThumbsUp, HelpCircle, ThumbsDown, Users, Clock, Calendar, Activity 
+  CalendarIcon, Share2, FileIcon, Building, 
+  CalendarCheck, CheckSquare, ThumbsUp, HelpCircle, 
+  ThumbsDown, Users, Clock, Calendar, MapPin, Wallet, Mail
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { TravelDocumentsTab } from '../../../components/TravelDocumentsTab';
 import { LodgingDocumentsTab } from '../../../components/LodgingDocumentsTab';
+import { TodoListTab } from '../../../components/TodoListTab';
+import { ItineraryTab } from '../../../components/ItineraryTab';
 import { Avatar } from '../../../components/ui/avatar';
 import { AvatarFallback } from '../../../components/ui/avatar';
 import { Badge } from '../../../components/ui/badge';
@@ -208,38 +210,41 @@ export default function TripDetails() {
         </div>
 
         {/* Responsive tabulated menu with horizontal scrolling on smaller screens */}
-        <div className="mb-4 flex justify-center w-full">
-          <div className="w-full max-w-full overflow-x-auto">
+        <div className="mb-6 flex justify-center w-full">
+          <div className="w-full">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-max min-w-full flex-nowrap whitespace-nowrap px-1">
-                <TabsTrigger value="overview">
+              <TabsList className="w-full flex flex-wrap justify-between bg-muted/20 rounded-xl shadow-sm px-2 py-3 gap-2 mb-6">
+                <TabsTrigger value="overview" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <CalendarIcon className="h-4 w-4 mr-2" /> Overview
                 </TabsTrigger>
-                <TabsTrigger value="guests">
+                <TabsTrigger value="guests" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <Users className="h-4 w-4 mr-2" /> Guests
                 </TabsTrigger>
-                <TabsTrigger value="travel">
+                <TabsTrigger value="travel" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <FileIcon className="h-4 w-4 mr-2" /> Travel
                 </TabsTrigger>
-                <TabsTrigger value="lodging">
+                <TabsTrigger value="lodging" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <Building className="h-4 w-4 mr-2" /> Lodging
                 </TabsTrigger>
-                <TabsTrigger value="itinerary">
+                <TabsTrigger value="itinerary" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <CalendarCheck className="h-4 w-4 mr-2" /> Itinerary
                 </TabsTrigger>
-                <TabsTrigger value="expenses">
+                <TabsTrigger value="expenses" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <Wallet className="h-4 w-4 mr-2" /> Expenses
                 </TabsTrigger>
-                <TabsTrigger value="todos">
+                <TabsTrigger value="todos" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <CheckSquare className="h-4 w-4 mr-2" /> To-dos
                 </TabsTrigger>
-                <TabsTrigger value="map">
+                <TabsTrigger value="map" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
                   <MapPin className="h-4 w-4 mr-2" /> Map
                 </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
         </div>
+
+
+
 
         {/* Tab contents separated from the menu */}
         <Card className="mb-4">
@@ -374,14 +379,13 @@ export default function TripDetails() {
             )}
 
             {activeTab === 'itinerary' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Trip Itinerary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>Itinerary content will go here</p>
-                </CardContent>
-              </Card>
+              <ItineraryTab
+                trip={trip}
+                tripId={tripId} 
+                currentUserId={user_id || ''}
+                userRole={userRole || 'viewer'} 
+                members={members}
+              />
             )}
 
             {activeTab === 'guests' && (
@@ -401,34 +405,204 @@ export default function TripDetails() {
                       </div>
                     )}
                     
-                    <div className="divide-y">
-                      {members.map(member => (
-                        <div key={member.user_id} className="py-3 flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Avatar>
-                              <AvatarFallback>
-                                {member.user.first_name?.[0]}{member.user.last_name?.[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
-                              <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                    <Tabs defaultValue="all" className="w-full">
+                      <TabsList className="w-full overflow-x-auto flex-nowrap whitespace-nowrap">
+                        <TabsTrigger value="all">All</TabsTrigger>
+                        <TabsTrigger value="going">
+                          <ThumbsUp className="h-4 w-4 mr-1" /> Going ({members.filter(m => m.rsvp_status === 'going').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="maybe">
+                          <HelpCircle className="h-4 w-4 mr-1" /> Maybe ({members.filter(m => m.rsvp_status === 'maybe').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="not_going">
+                          <ThumbsDown className="h-4 w-4 mr-1" /> Can't Go ({members.filter(m => m.rsvp_status === 'not_going').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="pending">
+                          <Clock className="h-4 w-4 mr-1" /> Invited ({members.filter(m => m.rsvp_status === 'pending').length})
+                        </TabsTrigger>
+                        {members.some(m => m.rsvp_status === 'waitlist') && (
+                          <TabsTrigger value="waitlist">
+                            <Users className="h-4 w-4 mr-1" /> Waitlisted ({members.filter(m => m.rsvp_status === 'waitlist').length})
+                          </TabsTrigger>
+                        )}
+                      </TabsList>
+                      
+                      <TabsContent value="all" className="mt-4">
+                        <div className="divide-y">
+                          {members.map(member => (
+                            <div key={member.user_id} className="py-3 flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <Avatar>
+                                  <AvatarFallback>
+                                    {member.user.first_name?.[0]}{member.user.last_name?.[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
+                                  <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                                </div>
+                              </div>
+                              <Badge className={`${getRSVPBadgeColor(member.rsvp_status)} flex items-center`}>
+                                {getRSVPIcon(member.rsvp_status)}
+                                <span className="ml-1">
+                                  {member.rsvp_status === 'going' ? 'Going' : 
+                                   member.rsvp_status === 'not_going' ? 'Not Going' : 
+                                   member.rsvp_status === 'maybe' ? 'Maybe' : 
+                                   member.rsvp_status === 'waitlist' ? 'Waitlisted' : 'Pending'}
+                                </span>
+                              </Badge>
                             </div>
-                          </div>
-                          <Badge className={`${getRSVPBadgeColor(member.rsvp_status)} flex items-center`}>
-                            {getRSVPIcon(member.rsvp_status)}
-                            <span className="ml-1">
-                              {member.rsvp_status === 'going' ? 'Going' : 
-                               member.rsvp_status === 'not_going' ? 'Not Going' : 
-                               member.rsvp_status === 'maybe' ? 'Maybe' : 'Pending'}
-                            </span>
-                          </Badge>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="going" className="mt-4">
+                        <div className="divide-y">
+                          {members
+                            .filter(member => member.rsvp_status === 'going')
+                            .map(member => (
+                              <div key={member.user_id} className="py-3 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar>
+                                    <AvatarFallback>
+                                      {member.user.first_name?.[0]}{member.user.last_name?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
+                                    <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                                  </div>
+                                </div>
+                                <Badge className="bg-green-500 flex items-center">
+                                  <ThumbsUp className="h-4 w-4" />
+                                  <span className="ml-1">Going</span>
+                                </Badge>
+                              </div>
+                            ))}
+                            {members.filter(member => member.rsvp_status === 'going').length === 0 && (
+                              <p className="py-4 text-center text-gray-500">No confirmed guests</p>
+                            )}
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="maybe" className="mt-4">
+                        <div className="divide-y">
+                          {members
+                            .filter(member => member.rsvp_status === 'maybe')
+                            .map(member => (
+                              <div key={member.user_id} className="py-3 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar>
+                                    <AvatarFallback>
+                                      {member.user.first_name?.[0]}{member.user.last_name?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
+                                    <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                                  </div>
+                                </div>
+                                <Badge className="bg-yellow-500 flex items-center">
+                                  <HelpCircle className="h-4 w-4" />
+                                  <span className="ml-1">Maybe</span>
+                                </Badge>
+                              </div>
+                            ))}
+                            {members.filter(member => member.rsvp_status === 'maybe').length === 0 && (
+                              <p className="py-4 text-center text-gray-500">No guests have responded with 'Maybe'</p>
+                            )}
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="not_going" className="mt-4">
+                        <div className="divide-y">
+                          {members
+                            .filter(member => member.rsvp_status === 'not_going')
+                            .map(member => (
+                              <div key={member.user_id} className="py-3 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar>
+                                    <AvatarFallback>
+                                      {member.user.first_name?.[0]}{member.user.last_name?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
+                                    <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                                  </div>
+                                </div>
+                                <Badge className="bg-red-500 flex items-center">
+                                  <ThumbsDown className="h-4 w-4" />
+                                  <span className="ml-1">Not Going</span>
+                                </Badge>
+                              </div>
+                            ))}
+                            {members.filter(member => member.rsvp_status === 'not_going').length === 0 && (
+                              <p className="py-4 text-center text-gray-500">No guests have declined</p>
+                            )}
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="pending" className="mt-4">
+                        <div className="divide-y">
+                          {members
+                            .filter(member => member.rsvp_status === 'pending')
+                            .map(member => (
+                              <div key={member.user_id} className="py-3 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar>
+                                    <AvatarFallback>
+                                      {member.user.first_name?.[0]}{member.user.last_name?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
+                                    <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                                  </div>
+                                </div>
+                                <Badge className="bg-gray-500 flex items-center">
+                                  <Clock className="h-4 w-4" />
+                                  <span className="ml-1">Pending</span>
+                                </Badge>
+                              </div>
+                            ))}
+                            {members.filter(member => member.rsvp_status === 'pending').length === 0 && (
+                              <p className="py-4 text-center text-gray-500">No pending invitations</p>
+                            )}
+                        </div>
+                      </TabsContent>
+                      
+                      {members.some(m => m.rsvp_status === 'waitlist') && (
+                        <TabsContent value="waitlist" className="mt-4">
+                          <div className="divide-y">
+                            {members
+                              .filter(member => member.rsvp_status === 'waitlist')
+                              .map(member => (
+                                <div key={member.user_id} className="py-3 flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <Avatar>
+                                      <AvatarFallback>
+                                        {member.user.first_name?.[0]}{member.user.last_name?.[0]}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium">{member.user.first_name} {member.user.last_name}</p>
+                                      <p className="text-sm text-gray-500">{member.role === 'planner' ? 'Trip Organizer' : 'Guest'}</p>
+                                    </div>
+                                  </div>
+                                  <Badge className="bg-purple-500 flex items-center">
+                                    <Users className="h-4 w-4" />
+                                    <span className="ml-1">Waitlisted</span>
+                                  </Badge>
+                                </div>
+                              ))}
+                          </div>
+                        </TabsContent>
+                      )}
+                    </Tabs>
                   </div>
-                  </CardContent>
-                </Card>
+                </CardContent>
+              </Card>
             )}
             
             {activeTab === 'expenses' && (
@@ -443,14 +617,12 @@ export default function TripDetails() {
             )}
             
             {activeTab === 'todos' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Todo List</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>Todo list content will go here</p>
-                </CardContent>
-              </Card>
+              <TodoListTab 
+                tripId={tripId}
+                currentUserId={user_id || ''}
+                userRole={userRole || 'viewer'}
+                members={members}
+              />
             )}
             
             {activeTab === 'map' && (

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithPhoneNumber, 
@@ -28,27 +28,47 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Constants for rate limiting
+const MIN_FETCH_INTERVAL = 10000; // 10 seconds minimum between profile fetches
+const FETCH_RETRY_DELAY = 5000;   // 5 seconds between fetch retries
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [user_id, setUser_id] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<Error | null>(null);
-  const [lastTokenRefresh, setLastTokenRefresh] = useState<number>(0);
-
+  
+  // Use refs for tracking fetch state to avoid re-renders and dependency issues
+  const isProfileFetchInProgress = useRef(false);
+  const lastProfileFetchTime = useRef(0);
+  const profileFetchDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const tokenRefreshCount = useRef(0);
+  
   // Function to fetch user profile - extracted for reuse
-  const fetchUserProfile = async (): Promise<void> => {
+  const fetchUserProfile = useCallback(async (force = false): Promise<void> => {
     if (!auth.currentUser) {
       setUser_id(null);
       return;
     }
 
+    // Skip if a fetch is already in progress
+    if (isProfileFetchInProgress.current) {
+      return;
+    }
+
+    const now = Date.now();
+    
+    // Rate limiting: Unless forced, don't fetch if we've fetched recently
+    if (!force && now - lastProfileFetchTime.current < MIN_FETCH_INTERVAL) {
+      return;
+    }
+
     try {
-      // Ensure we have a fresh token before making the request
-      await auth.currentUser.getIdToken(true);
+      isProfileFetchInProgress.current = true;
+      lastProfileFetchTime.current = now;
       
       // Make a request to get the user profile which should contain the internal ID
       const profile = await api.getUserProfile();
-      console.log("Fetched user profile successfully:", profile);
       
       if (profile && profile.id) {
         setUser_id(profile.id);
@@ -60,16 +80,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error("Failed to fetch user profile:", error);
       setProfileError(error instanceof Error ? error : new Error(String(error)));
-      // Don't reset user_id here to avoid flashing UI if it's a temporary error
+      
+      // Only schedule retry if we still don't have a user_id
+      if (!user_id) {
+        setTimeout(() => {
+          // Reset the in-progress flag to allow the next retry
+          isProfileFetchInProgress.current = false;
+          fetchUserProfile();
+        }, FETCH_RETRY_DELAY);
+      }
+    } finally {
+      // Unless we're waiting for a retry, reset the in-progress flag
+      if (user_id || !profileError) {
+        isProfileFetchInProgress.current = false;
+      }
     }
-  };
+  }, [user_id]);
 
   // Function that can be called to manually refresh the profile
   const refreshUserProfile = async (): Promise<void> => {
     setLoading(true);
-    await fetchUserProfile();
+    await fetchUserProfile(true); // Force refresh
     setLoading(false);
   };
+
+  // Token refresh handler with debounce
+  const handleTokenRefresh = useCallback(() => {
+    tokenRefreshCount.current += 1;
+    
+    // Clear any existing timer
+    if (profileFetchDebounceTimer.current) {
+      clearTimeout(profileFetchDebounceTimer.current);
+    }
+    
+    // Debounce the profile fetch to prevent rapid consecutive calls
+    profileFetchDebounceTimer.current = setTimeout(() => {
+      fetchUserProfile();
+      profileFetchDebounceTimer.current = null;
+    }, 1000); // 1 second debounce
+  }, [fetchUserProfile]);
 
   // Listen for Firebase auth state changes
   useEffect(() => {
@@ -80,22 +129,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (currentUser) {
         // Token listener to detect when the token refreshes
         const tokenListener = auth.onIdTokenChanged(() => {
-          const now = Date.now();
-          // Only trigger a profile refresh if it's been at least 1 second since the last one
-          // This prevents multiple rapid refreshes
-          if (now - lastTokenRefresh > 1000) {
-            setLastTokenRefresh(now);
-            console.log("Token refreshed, fetching updated profile");
-            fetchUserProfile();
-          }
+          handleTokenRefresh();
         });
         
         // Initial profile fetch
-        await fetchUserProfile();
+        await fetchUserProfile(true); // Force the initial fetch
         setLoading(false);
         
         return () => {
           tokenListener();
+          // Clean up any pending debounce timer
+          if (profileFetchDebounceTimer.current) {
+            clearTimeout(profileFetchDebounceTimer.current);
+          }
         };
       } else {
         // No user is signed in
@@ -105,20 +151,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     
     return () => unsubscribe();
-  }, [lastTokenRefresh]); // Include lastTokenRefresh in dependencies
+  }, [fetchUserProfile, handleTokenRefresh]); // Proper dependencies
 
-  // Retry profile fetch if it failed initially and we have a user but no user_id
-  useEffect(() => {
-    if (user && !user_id && profileError) {
-      const retryTimer = setTimeout(() => {
-        console.log("Retrying user profile fetch...");
-        fetchUserProfile();
-      }, 3000); // Retry after 3 seconds
-      
-      return () => clearTimeout(retryTimer);
-    }
-  }, [user, user_id, profileError]);
+  // No need for a separate retry effect since we handle retries in fetchUserProfile
 
+  // Rest of your auth functions...
   const startPhoneAuth = async (phoneNumber: string) => {
     try {
       if (typeof window !== 'undefined') {
@@ -137,7 +174,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const confirmOtp = async (confirmationResult: ConfirmationResult, otp: string) => {
     try {
+      // When confirming OTP, we'll let the auth state change listener handle the profile fetch
+      // rather than triggering multiple fetches
       const userCredential = await confirmationResult.confirm(otp);
+      
+      // We don't need to fetch the profile here as the auth state change listener will do it
+      // Just return the user
       return userCredential.user;
     } catch (error) {
       console.error("Error confirming OTP:", error);

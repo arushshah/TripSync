@@ -173,6 +173,18 @@ export class ApiClient {
     return this.request<any>(`/itinerary/${tripId}/generate`, 'POST');
   }
   
+  async createItineraryItem(tripId: string, itemData: any) {
+    return this.request<any>(`/itinerary/${tripId}`, 'POST', itemData);
+  }
+  
+  async updateItineraryItem(tripId: string, itemId: string, updates: any) {
+    return this.request<any>(`/itinerary/${tripId}/${itemId}`, 'PUT', updates);
+  }
+  
+  async deleteItineraryItem(tripId: string, itemId: string) {
+    return this.request<void>(`/itinerary/${tripId}/${itemId}`, 'DELETE');
+  }
+  
   // Document endpoints
   async getTravelDocuments(tripId: string) {
     return this.request<any>(`/documents/travel/${tripId}`);
@@ -209,6 +221,34 @@ export class ApiClient {
   
   async updateTodoStatus(tripId: string, todoId: string, isCompleted: boolean) {
     return this.request<any>(`/todos/${tripId}/${todoId}`, 'PUT', { is_completed: isCompleted });
+  }
+
+  async getTripTodos(tripId: string) {
+    return this.request<any[]>(`/todos/${tripId}`);
+  }
+  
+  async createTripTodo(tripId: string, todoData: any) {
+    return this.request<any>(`/todos/${tripId}`, 'POST', todoData);
+  }
+  
+  async updateTripTodo(tripId: string, todoId: string, updates: any) {
+    return this.request<any>(`/todos/${tripId}/${todoId}`, 'PUT', updates);
+  }
+  
+  async deleteTripTodo(tripId: string, todoId: string) {
+    return this.request<void>(`/todos/${tripId}/${todoId}`, 'DELETE');
+  }
+  
+  async completeTripTodo(tripId: string, todoId: string) {
+    return this.request<any>(`/todos/${tripId}/${todoId}/complete`, 'POST');
+  }
+  
+  async uncompleteTripTodo(tripId: string, todoId: string) {
+    return this.request<any>(`/todos/${tripId}/${todoId}/uncomplete`, 'POST');
+  }
+  
+  async getMyTripTodos(tripId: string) {
+    return this.request<any[]>(`/todos/${tripId}/assigned-to-me`);
   }
   
   // Map endpoints
