@@ -17,8 +17,9 @@ import {
 import { format } from 'date-fns';
 import { TravelDocumentsTab } from '../../../components/TravelDocumentsTab';
 import { LodgingDocumentsTab } from '../../../components/LodgingDocumentsTab';
-import { TodoListTab } from '../../../components/TodoListTab';
-import { ItineraryTab } from '../../../components/ItineraryTab';
+// Fix import paths to use absolute paths instead of relative
+import { TodoListTab } from '@/components/TodoListTab';
+import { ItineraryTab } from '@/components/ItineraryTab';
 import { Avatar } from '../../../components/ui/avatar';
 import { AvatarFallback } from '../../../components/ui/avatar';
 import { Badge } from '../../../components/ui/badge';
