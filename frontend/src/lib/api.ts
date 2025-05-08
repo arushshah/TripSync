@@ -252,12 +252,25 @@ export class ApiClient {
   }
   
   // Map endpoints
-  async getMapLocations(tripId: string) {
-    return this.request<any>(`/map/${tripId}`);
+  async getMapLocations(tripId: string, category?: string) {
+    const queryParam = category ? `?category=${encodeURIComponent(category)}` : '';
+    return this.request<any>(`/map/${tripId}/markers${queryParam}`);
   }
   
   async addMapLocation(tripId: string, locationData: any) {
-    return this.request<any>(`/map/${tripId}`, 'POST', locationData);
+    return this.request<any>(`/map/${tripId}/markers`, 'POST', locationData);
+  }
+  
+  async updateMapLocation(tripId: string, markerId: string, locationData: any) {
+    return this.request<any>(`/map/${tripId}/markers/${markerId}`, 'PUT', locationData);
+  }
+  
+  async deleteMapLocation(tripId: string, markerId: string) {
+    return this.request<void>(`/map/${tripId}/markers/${markerId}`, 'DELETE');
+  }
+  
+  async getMapLocationCategories(tripId: string) {
+    return this.request<string[]>(`/map/${tripId}/categories`);
   }
   
   // Expense endpoints

@@ -33,7 +33,8 @@ def create_marker(trip_id):
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     
-    required_fields = ['name', 'category', 'latitude', 'longitude']
+    # Remove category from required fields and make latitude/longitude required
+    required_fields = ['name', 'latitude', 'longitude']
     for field in required_fields:
         if field not in data:
             return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -43,7 +44,8 @@ def create_marker(trip_id):
         trip_id=trip_id,
         creator_id=request.user_id,
         name=data['name'],
-        category=data['category'],
+        # If category is not provided, default to "Unassigned"
+        category=data.get('category', 'Unassigned'),
         latitude=data['latitude'],
         longitude=data['longitude'],
         address=data.get('address'),

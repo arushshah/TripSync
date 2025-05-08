@@ -15,6 +15,7 @@ htmlcov/
 venv/
 ENV/
 .python-version
+*.log
 
 # Node.js dependencies and build output
 node_modules/

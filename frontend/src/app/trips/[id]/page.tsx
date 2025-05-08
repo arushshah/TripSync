@@ -20,6 +20,7 @@ import { LodgingDocumentsTab } from '../../../components/LodgingDocumentsTab';
 // Fix import paths to use absolute paths instead of relative
 import { TodoListTab } from '@/components/TodoListTab';
 import { ItineraryTab } from '@/components/ItineraryTab';
+import { MapTab } from '@/components/MapTab';
 import { Avatar } from '../../../components/ui/avatar';
 import { AvatarFallback } from '../../../components/ui/avatar';
 import { Badge } from '../../../components/ui/badge';
@@ -44,9 +45,6 @@ export default function TripDetails() {
   const tripId = params.id as string;
 
   useEffect(() => {
-    console.log(user);
-    console.log(tripId);
-    console.log(user_id);
     if (!loading) {
       if (!user) {
         router.push('/login');
@@ -76,22 +74,18 @@ export default function TripDetails() {
   }, [user_id, members]);
 
   const fetchTripData = async () => {
-    console.log("waiting here2...");
     if (!user || !tripId || !user_id) return;
 
     try {
       setIsLoading(true);
       
       // Use API client to fetch trip data
-      console.log("waiting here...");
       const tripData = await api.getTripById(tripId);
-      console.log("tripData: " + tripData);
       setTrip(tripData);
 
       // Get user role from trip members
       // Use the user_id which matches the backend's user_id
       const currentMember = tripData.members?.find(member => member.user_id === user_id);
-      console.log("currentmember: " + currentMember);
       if (currentMember) {
         setUserRole(currentMember.role as 'planner' | 'guest' | 'viewer');
       } else {
@@ -627,14 +621,10 @@ export default function TripDetails() {
             )}
             
             {activeTab === 'map' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Trip Map</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>Map content will go here</p>
-                </CardContent>
-              </Card>
+              <MapTab
+                tripId={tripId}
+                userRole={userRole || 'viewer'}
+              />
             )}
           </CardContent>
         </Card>
