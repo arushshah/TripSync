@@ -284,7 +284,6 @@ export default function EditTrip() {
                 </Button>
                 <Button
                   type="submit"
-                  variant="teal"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Saving...' : 'Save Changes'}

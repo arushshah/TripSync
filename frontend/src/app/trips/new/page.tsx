@@ -223,7 +223,6 @@ export default function NewTrip() {
               <div className="flex justify-end">
                 <Button
                   type="submit"
-                  variant="teal"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Creating...' : 'Create Trip'}
