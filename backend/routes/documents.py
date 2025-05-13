@@ -14,17 +14,18 @@ def get_documents(trip_id):
     """Get all documents for a trip"""
     document_type = request.args.get('type')
     
-    # Base query
-    query = Document.query.filter_by(trip_id=trip_id)
+    # Build all query conditions at once
+    filters = [Document.trip_id == trip_id]
     
-    # Filter by document type if provided
+    # Add document type filter if provided
     if document_type in ['travel', 'accommodation']:
-        query = query.filter_by(document_type=document_type)
+        filters.append(Document.document_type == document_type)
         
-    # Only show documents that are either public or owned by the requesting user
-    query = query.filter((Document.is_public == True) | (Document.user_id == request.user_id))
+    # Add permission filter - only show documents that are public or owned by user
+    filters.append((Document.is_public == True) | (Document.user_id == request.user_id))
     
-    documents = query.order_by(Document.created_at.desc()).all()
+    # Execute query with all filters at once and order by creation date
+    documents = Document.query.filter(*filters).order_by(Document.created_at.desc()).all()
     
     return jsonify([doc.to_dict() for doc in documents]), 200
 

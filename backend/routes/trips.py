@@ -37,7 +37,13 @@ def get_trips():
 @authenticate_token
 def create_trip():
     """Create a new trip"""
-    data = request.json
+    try:
+        data = request.get_json()
+    except Exception:
+        return jsonify({'error': 'Invalid JSON'}), 400
+
+    if not data:
+        return jsonify({'error': 'Invalid JSON'}), 400
     user_id = request.user_id
     logger.debug(f"User {user_id} attempting to create a trip: {data}")
     
@@ -337,7 +343,7 @@ def get_trip_invitations():
     # Find all trips where the user is a member with any status except "going"
     non_going_members = TripMember.query.filter(
         TripMember.user_id == user_id,
-        TripMember.rsvp_status.in_(['pending', 'maybe', 'not_going'])
+        TripMember.rsvp_status.in_(['pending', 'maybe', 'not_going', 'waitlist'])
     ).all()
     
     trip_ids = [tm.trip_id for tm in non_going_members]

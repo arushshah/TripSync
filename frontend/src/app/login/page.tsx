@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   
-  const { startPhoneAuth, confirmOtp, logout } = useAuth();
+  const { startPhoneAuth, confirmOtp, refreshUserProfile } = useAuth();
   const router = useRouter();
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
@@ -78,6 +78,9 @@ export default function LoginPage() {
         setError('Invalid verification code. Please try again.');
         return;
       }
+      
+      // Explicitly refresh user profile to get first_name and last_name from database
+      await refreshUserProfile();
       
       // We've already verified the user exists in our database during handlePhoneSubmit
       // So we can directly proceed to dashboard after successful OTP verification

@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Make a request to get the user profile which should contain the internal ID
       const profile = await api.getUserProfile();
+      console.log("Fetched user profile:", profile);
       
       if (profile && profile.id) {
         setUser_id(profile.id);
@@ -99,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Function that can be called to manually refresh the profile
   const refreshUserProfile = async (): Promise<void> => {
+    console.log("here");
     setLoading(true);
     await fetchUserProfile(true); // Force refresh
     setLoading(false);
@@ -224,7 +226,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(userToUpdate);
       }
 
-      // After updating Firebase profile, also fetch the latest internal user profile
+      // Also update the backend database with the new name
+      try {
+        // Fix: Use the proper API method instead of api.put
+        await api.updateUserProfile({
+          first_name: userData.firstName,
+          last_name: userData.lastName
+        });
+      } catch (apiError) {
+        console.error("Error updating user profile in backend:", apiError);
+        // We don't throw here to prevent the entire operation from failing
+        // At least the Firebase update succeeded
+      }
+
+      // After updating both Firebase and backend profiles, fetch the latest internal user profile
       await fetchUserProfile();
       
       return;

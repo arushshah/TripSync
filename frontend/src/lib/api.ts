@@ -275,24 +275,60 @@ export class ApiClient {
   
   // Expense endpoints
   async getExpenses(tripId: string) {
-    return this.request<any>(`/expenses/${tripId}`);
+    return this.request<any[]>(`/expenses/${tripId}`);
+  }
+  
+  async getExpenseSummary(tripId: string) {
+    return this.request<any>(`/expenses/${tripId}/summary`);
   }
   
   async addExpense(tripId: string, expenseData: any) {
     return this.request<any>(`/expenses/${tripId}`, 'POST', expenseData);
   }
   
+  async getExpense(tripId: string, expenseId: string) {
+    return this.request<any>(`/expenses/${tripId}/${expenseId}`);
+  }
+  
+  async updateExpense(tripId: string, expenseId: string, expenseData: any) {
+    return this.request<any>(`/expenses/${tripId}/${expenseId}`, 'PUT', expenseData);
+  }
+  
+  async deleteExpense(tripId: string, expenseId: string) {
+    return this.request<void>(`/expenses/${tripId}/${expenseId}`, 'DELETE');
+  }
+  
+  async getMyExpenses(tripId: string) {
+    return this.request<any[]>(`/expenses/${tripId}/my-expenses`);
+  }
+  
+  async markExpenseParticipantPaid(tripId: string, expenseId: string, userId: string) {
+    return this.request<any>(`/expenses/${tripId}/participants/${expenseId}/${userId}/mark-paid`, 'POST');
+  }
+  
   // Poll endpoints
   async getPolls(tripId: string) {
-    return this.request<any>(`/polls/${tripId}`);
+    return this.request<any[]>(`/polls/${tripId}`);
   }
   
   async createPoll(tripId: string, pollData: any) {
     return this.request<any>(`/polls/${tripId}`, 'POST', pollData);
   }
   
-  async voteOnPoll(tripId: string, pollId: string, optionId: string) {
-    return this.request<any>(`/polls/${tripId}/${pollId}/vote`, 'POST', { option_id: optionId });
+  async updatePoll(tripId: string, pollId: string, pollData: any) {
+    return this.request<any>(`/polls/${tripId}/${pollId}`, 'PUT', pollData);
+  }
+  
+  async deletePoll(tripId: string, pollId: string) {
+    return this.request<void>(`/polls/${tripId}/${pollId}`);
+  }
+  
+  async getPollById(tripId: string, pollId: string) {
+    return this.request<any>(`/polls/${tripId}/${pollId}`);
+  }
+  
+  async voteOnPoll(tripId: string, pollId: string, optionIds: string[]) {
+    return this.request<any>(`/polls/${tripId}/${pollId}/vote`, 'POST', { optionIds });
   }
   
   // User endpoints

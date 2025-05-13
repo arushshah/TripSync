@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../lib/auth/AuthProvider';
 import { ThemeToggle } from './theme/ThemeToggle';
 import { Button } from './ui/button';
@@ -54,47 +55,34 @@ export function Header({ showAuthButtons = true }: HeaderProps) {
       <div className="container flex h-14 items-center">
         <div className="flex flex-1 items-center justify-between">
           <div className="flex items-center">
-            {/* Mobile menu */}
-            <Sheet>
-              <SheetTrigger asChild className="mr-2 md:hidden">
-                <Button variant="ghost" size="icon" aria-label="Menu">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[240px] sm:w-[300px]">
-                <nav className="flex flex-col gap-4 mt-6">
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => router.push('/dashboard')}
-                  >
-                    Dashboard
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start" 
-                    onClick={() => router.push('/trips/new')}
-                  >
-                    Create Trip
-                  </Button>
-                </nav>
-              </SheetContent>
-            </Sheet>
-            
             {/* Logo */}
             <Button 
               variant="ghost" 
-              className="hidden md:flex font-bold text-xl"
+              className="hidden md:flex items-center space-x-2 font-bold"
               onClick={() => router.push(user ? '/dashboard' : '/')}
             >
-              TripSync
+              <Image 
+                src="/images/tripsync-logo.png" 
+                alt="TripSync Logo" 
+                width={180} 
+                height={55} 
+                className="h-50 w-auto"
+                priority
+              />
             </Button>
             <Button 
               variant="ghost" 
-              className="md:hidden font-bold text-xl px-0"
+              className="md:hidden font-bold px-0"
               onClick={() => router.push(user ? '/dashboard' : '/')}
             >
-              TS
+              <Image 
+                src="/images/tripsync-logo.png" 
+                alt="TripSync Logo" 
+                width={120} 
+                height={36} 
+                className="h-9 w-auto"
+                priority
+              />
             </Button>
           </div>
           

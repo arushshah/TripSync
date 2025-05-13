@@ -21,9 +21,12 @@ import { LodgingDocumentsTab } from '../../../components/LodgingDocumentsTab';
 import { TodoListTab } from '@/components/TodoListTab';
 import { ItineraryTab } from '@/components/ItineraryTab';
 import { MapTab } from '@/components/MapTab';
+import { ExpensesTab } from '@/components/ExpensesTab';
+import { PollsTab } from '@/components/PollsTab';
 import { Avatar } from '../../../components/ui/avatar';
 import { AvatarFallback } from '../../../components/ui/avatar';
 import { Badge } from '../../../components/ui/badge';
+import { SidebarNav } from '@/components/SidebarNav';
 
 export default function TripDetails() {
   const params = useParams();
@@ -165,116 +168,88 @@ export default function TripDetails() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="container mx-auto p-4">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h1 className="text-3xl font-bold">{trip?.name}</h1>
-            <p className="text-gray-500">{trip?.description}</p>
-            <div className="flex items-center mt-2 space-x-4">
-              <div className="flex items-center">
-                <Calendar className="h-5 w-5 mr-2" />
-                <span>{format(new Date(trip?.start_date || ''), 'MMM d, yyyy')}</span>
-                {trip?.end_date && (
-                  <span> - {format(new Date(trip?.end_date || ''), 'MMM d, yyyy')}</span>
-                )}
-              </div>
-              <div className="flex items-center">
-                <MapPin className="h-5 w-5 mr-2" />
-                <span>{trip?.location}</span>
+      <div className="flex flex-1">
+        {/* Sidebar Navigation */}
+        <SidebarNav 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab}
+        />
+        
+        {/* Main Content Area */}
+        <div className="flex-1 p-4 md:p-6">
+          {/* Trip Header */}
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h1 className="text-3xl font-bold">{trip?.name}</h1>
+              <p className="text-gray-500">{trip?.description}</p>
+              <div className="flex flex-wrap items-center mt-2 gap-4">
+                <div className="flex items-center">
+                  <Calendar className="h-5 w-5 mr-2" />
+                  <span>{format(new Date(trip?.start_date || ''), 'MMM d, yyyy')}</span>
+                  {trip?.end_date && (
+                    <span> - {format(new Date(trip?.end_date || ''), 'MMM d, yyyy')}</span>
+                  )}
+                </div>
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2" />
+                  <span>{trip?.location}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex space-x-2">
-            {userRole === 'planner' && (
+            <div className="flex space-x-2">
+              {userRole === 'planner' && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => router.push(`/trips/${tripId}/edit`)}
+                >
+                  Edit Trip
+                </Button>
+              )}
               <Button 
-                variant="outline" 
-                onClick={() => router.push(`/trips/${tripId}/edit`)}
+                onClick={handleCopyInviteLink}
               >
-                Edit Trip
+                <Share2 className="h-4 w-4 mr-2" />
+                {inviteCopied ? 'Copied!' : 'Share'}
               </Button>
-            )}
-            <Button 
-              onClick={handleCopyInviteLink}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              {inviteCopied ? 'Copied!' : 'Share'}
-            </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Responsive tabulated menu with horizontal scrolling on smaller screens */}
-        <div className="mb-6 flex justify-center w-full">
-          <div className="w-full">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full flex flex-wrap justify-between bg-muted/20 rounded-xl shadow-sm px-2 py-3 gap-2 mb-6">
-                <TabsTrigger value="overview" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <CalendarIcon className="h-4 w-4 mr-2" /> Overview
-                </TabsTrigger>
-                <TabsTrigger value="guests" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <Users className="h-4 w-4 mr-2" /> Guests
-                </TabsTrigger>
-                <TabsTrigger value="travel" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <FileIcon className="h-4 w-4 mr-2" /> Travel
-                </TabsTrigger>
-                <TabsTrigger value="lodging" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <Building className="h-4 w-4 mr-2" /> Lodging
-                </TabsTrigger>
-                <TabsTrigger value="itinerary" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <CalendarCheck className="h-4 w-4 mr-2" /> Itinerary
-                </TabsTrigger>
-                <TabsTrigger value="expenses" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <Wallet className="h-4 w-4 mr-2" /> Expenses
-                </TabsTrigger>
-                <TabsTrigger value="todos" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <CheckSquare className="h-4 w-4 mr-2" /> To-dos
-                </TabsTrigger>
-                <TabsTrigger value="map" className="flex-1 min-w-[140px] px-4 py-3 rounded-md text-sm hover:bg-muted transition">
-                  <MapPin className="h-4 w-4 mr-2" /> Map
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
-
-
-
-
-        {/* Tab contents separated from the menu */}
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            {activeTab === 'overview' && (
-              <div className="space-y-6">
-                {/* First Section: Trip Details */}
-                <div>
-                  <h2 className="text-xl font-semibold mb-4">Trip Details</h2>
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="grid gap-4">
-                        <div className="flex flex-col md:flex-row md:justify-between">
-                          <div>
-                            <h3 className="font-medium text-gray-500">Trip Name</h3>
-                            <p className="text-lg">{trip?.name}</p>
+          {/* Tab contents */}
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              {activeTab === 'overview' && (
+                <div className="space-y-6">
+                  {/* First Section: Trip Details */}
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Trip Details</h2>
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="grid gap-4">
+                          <div className="flex flex-col md:flex-row md:justify-between">
+                            <div>
+                              <h3 className="font-medium text-gray-500">Trip Name</h3>
+                              <p className="text-lg">{trip?.name}</p>
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-gray-500">Organizer</h3>
+                              <p className="text-lg">{members.find(m => m.role === 'planner')?.user?.first_name} {members.find(m => m.role === 'planner')?.user?.last_name}</p>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="font-medium text-gray-500">Organizer</h3>
-                            <p className="text-lg">{members.find(m => m.role === 'planner')?.user?.first_name} {members.find(m => m.role === 'planner')?.user?.last_name}</p>
+                          <div className="flex flex-col md:flex-row md:justify-between">
+                            <div>
+                              <h3 className="font-medium text-gray-500">Dates</h3>
+                              <p className="text-lg">
+                                {format(new Date(trip?.start_date || ''), 'MMMM d, yyyy')} 
+                                {trip?.end_date && <> - {format(new Date(trip?.end_date), 'MMMM d, yyyy')}</>}
+                              </p>
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-gray-500">Location</h3>
+                              <p className="text-lg">{trip?.location}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col md:flex-row md:justify-between">
-                          <div>
-                            <h3 className="font-medium text-gray-500">Dates</h3>
-                            <p className="text-lg">
-                              {format(new Date(trip?.start_date || ''), 'MMMM d, yyyy')} 
-                              {trip?.end_date && <> - {format(new Date(trip?.end_date), 'MMMM d, yyyy')}</>}
-                            </p>
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-gray-500">Location</h3>
-                            <p className="text-lg">{trip?.location}</p>
-                          </div>
-                        </div>
                         <div>
                           <h3 className="font-medium text-gray-500">Description</h3>
                           <p>{trip?.description}</p>
@@ -601,14 +576,12 @@ export default function TripDetails() {
             )}
             
             {activeTab === 'expenses' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Expenses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>Expense tracking and splitting content will go here</p>
-                </CardContent>
-              </Card>
+              <ExpensesTab
+                tripId={tripId}
+                currentUserId={user_id || ''}
+                userRole={userRole || 'viewer'}
+                members={members}
+              />
             )}
             
             {activeTab === 'todos' && (
@@ -626,8 +599,18 @@ export default function TripDetails() {
                 userRole={userRole || 'viewer'}
               />
             )}
+            
+            {activeTab === 'polls' && (
+              <PollsTab
+                tripId={tripId}
+                currentUserId={user_id || ''}
+                userRole={userRole || 'viewer'}
+                members={members}
+              />
+            )}
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );

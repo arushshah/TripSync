@@ -841,11 +841,28 @@ export function MapTab({ tripId, userRole }: MapTabProps) {
                       {categoryMarkers.map(marker => (
                         <div 
                           key={marker.id} 
-                          className="py-3 first:pt-4 last:pb-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                          className="py-3 first:pt-4 last:pb-4 cursor-pointer transition-colors"
+                          style={{
+                            "--marker-color": getCategoryColor(category),
+                          } as React.CSSProperties}
                           onClick={() => {
                             setSelectedMarker(marker);
                             setCenter({lat: marker.latitude, lng: marker.longitude});
                             setZoom(16);
+                          }}
+                          onMouseEnter={(e) => {
+                            const el = e.currentTarget;
+                            // Use a lighter shade of the category color (20% opacity)
+                            el.style.backgroundColor = `${getCategoryColor(category)}33`; // 33 is hex for 20% opacity
+                            el.style.transform = 'scale(1.01)';
+                            // Make the font size larger
+                            el.querySelector('h4')?.classList.add('text-lg');
+                          }}
+                          onMouseLeave={(e) => {
+                            const el = e.currentTarget;
+                            el.style.backgroundColor = '';
+                            el.style.transform = '';
+                            el.querySelector('h4')?.classList.remove('text-lg');
                           }}
                         >
                           {/* Rest of the code remains the same */}

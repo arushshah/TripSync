@@ -22,12 +22,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 load_dotenv()
 
 # Import Flask app and database
-from app import app, db
+from app import create_app, db
 from models.user import User
 from models.trip import Trip
 from models.trip import TripMember
 from models.todo import TodoItem
 
+app = create_app()
 # Test user data
 test_users = [
     {
