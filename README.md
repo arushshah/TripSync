@@ -1,3 +1,9 @@
+HOSTED AT
+-------------
+https://tripsync-gamma.vercel.app/
+Use test account to log in - phone number 1234567890
+Verification code - 123456
+
 LOCAL TESTING
 
 Backend
