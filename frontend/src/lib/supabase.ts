@@ -94,3 +94,35 @@ export const getTemporaryFileUrl = async (fileUrl: string): Promise<string> => {
     throw err;
   }
 };
+
+// List all available trip cover image paths from the 'trip-covers/' folder (private bucket)
+export const listTripCoverImagePaths = async (): Promise<string[]> => {
+  const { data, error } = await supabase.storage
+    .from('tripsync-bucket')
+    .list('trip-covers', { limit: 100, offset: 0 });
+
+  if (error) {
+    console.error('Error listing trip cover images:', error);
+    return [];
+  }
+
+  if (!data) return [];
+
+  // Return file paths (e.g., 'trip-covers/barcelona.jpg')
+  return data
+    .filter((item) => item.name.match(/\.(jpg|jpeg|png|webp)$/i))
+    .map((item) => `trip-covers/${item.name}`);
+};
+
+// Generate a signed URL for a given file path in the bucket
+export const getTripCoverSignedUrl = async (filePath: string): Promise<string | null> => {
+  const { data, error } = await supabase.storage
+    .from('tripsync-bucket')
+    .createSignedUrl(filePath, 60 * 60); // 1 hour expiry
+
+  if (error) {
+    console.error('Error generating signed URL:', error);
+    return null;
+  }
+  return data.signedUrl;
+};

@@ -52,38 +52,42 @@ export function Header({ showAuthButtons = true }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
+      <div className="container flex items-center">
         <div className="flex flex-1 items-center justify-between">
-          <div className="flex items-center">
-            {/* Logo */}
-            <Button 
-              variant="ghost" 
-              className="hidden md:flex items-center space-x-2 font-bold"
+          {/* Logo for desktop */}
+          <div className="hidden md:flex items-center">
+            <button
               onClick={() => router.push(user ? '/dashboard' : '/')}
+              className="block leading-none"
+              style={{ padding: 10, border: 'none', background: 'none' }}
             >
-              <Image 
-                src="/images/tripsync-logo.png" 
-                alt="TripSync Logo" 
-                width={180} 
-                height={55} 
-                className="h-50 w-auto"
+              <Image
+                src="/images/tripsync-logo.png"
+                alt="TripSync Logo"
+                width={240}
+                height={60}
+                className="h-[40px] w-auto object-contain"
                 priority
               />
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="md:hidden font-bold px-0"
+            </button>
+          </div>
+
+          {/* Logo for mobile */}
+          <div className="flex md:hidden items-center">
+            <button
               onClick={() => router.push(user ? '/dashboard' : '/')}
+              className="block leading-none"
+              style={{ padding: 10, border: 'none', background: 'none' }}
             >
-              <Image 
-                src="/images/tripsync-logo.png" 
-                alt="TripSync Logo" 
-                width={120} 
-                height={36} 
-                className="h-9 w-auto"
+              <Image
+                src="/images/tripsync-logo.png"
+                alt="TripSync Logo"
+                width={200}
+                height={50}
+                className="h-[35px] w-auto object-contain"
                 priority
               />
-            </Button>
+            </button>
           </div>
           
           <div className="flex items-center gap-2">

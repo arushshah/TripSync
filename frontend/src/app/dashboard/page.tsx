@@ -11,6 +11,36 @@ import { Calendar, MapPin, Plus, Mail, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import Image from 'next/image';
+import { getTripCoverSignedUrl } from '../../lib/supabase';
+
+// Helper component to display a trip cover image using a signed URL
+function TripCoverImage({ filePath }: { filePath: string }) {
+  const [signedUrl, setSignedUrl] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let isMounted = true;
+    getTripCoverSignedUrl(filePath).then((url) => {
+      if (isMounted) setSignedUrl(url);
+    });
+    return () => { isMounted = false; };
+  }, [filePath]);
+  if (!filePath) return null;
+  if (!signedUrl) {
+    return <div className="w-full h-[120px] bg-muted flex items-center justify-center text-xs text-muted-foreground rounded-t-md">Loading...</div>;
+  }
+  return (
+    <div className="w-full h-[120px] bg-muted relative">
+      <Image
+        src={signedUrl}
+        alt="Trip Cover"
+        fill
+        style={{ objectFit: 'cover' }}
+        className="rounded-t-md"
+        sizes="300px"
+      />
+    </div>
+  );
+}
 
 // Component for Your Trips tab
 function YourTripsTab({ trips, onCreateTrip, onTripClick }: { 
@@ -47,9 +77,6 @@ function YourTripsTab({ trips, onCreateTrip, onTripClick }: {
             <p className="text-sm text-muted-foreground">
               Showing {trips.length} trip{trips.length !== 1 ? 's' : ''}
             </p>
-            <Button variant="link" className="text-sm p-0 h-auto">
-              View all <ChevronRight className="h-3 w-3 ml-1" />
-            </Button>
           </div>
           
           <div className="overflow-x-auto pb-4">
@@ -61,6 +88,14 @@ function YourTripsTab({ trips, onCreateTrip, onTripClick }: {
                   onClick={() => onTripClick(trip.id)}
                   style={{ width: '300px' }}
                 >
+                  {/* Trip Cover Photo */}
+                  {trip.cover_photo_path ? (
+                    <TripCoverImage filePath={trip.cover_photo_path} />
+                  ) : (
+                    <div className="w-full h-[120px] bg-muted flex items-center justify-center text-xs text-muted-foreground rounded-t-md">
+                      No photo
+                    </div>
+                  )}
                   <CardHeader className="pb-2">
                     <CardTitle className="line-clamp-1">{trip.name}</CardTitle>
                     <CardDescription className="flex items-center gap-1">
@@ -136,6 +171,14 @@ function InvitationsTab({ invitations, onTripClick }: {
                   onClick={() => onTripClick(trip.id)}
                   style={{ width: '300px' }}
                 >
+                  {/* Trip Cover Photo */}
+                  {trip.cover_photo_path ? (
+                    <TripCoverImage filePath={trip.cover_photo_path} />
+                  ) : (
+                    <div className="w-full h-[120px] bg-muted flex items-center justify-center text-xs text-muted-foreground rounded-t-md">
+                      No photo
+                    </div>
+                  )}
                   <CardHeader className="pb-2">
                     <CardTitle className="line-clamp-1">{trip.name}</CardTitle>
                     <CardDescription className="flex items-center gap-1">
@@ -241,7 +284,6 @@ function DashboardContent() {
       <main className="container mx-auto max-w-7xl px-4 py-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Manage your trips and invitations</p>
         </div>
 
         <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-8">
@@ -250,8 +292,13 @@ function DashboardContent() {
               value="trips" 
               className="data-[state=active]:bg-transparent data-[state=active]:shadow-none
                          data-[state=active]:border-primary data-[state=active]:border-b-2
-                         rounded-none px-5 py-2 font-medium">
+                         rounded-none px-5 py-2 font-medium relative">
               Your Trips
+              {trips.length > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-5 w-5 text-xs font-bold text-white bg-[hsl(var(--teal))] rounded-full">
+                  {trips.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger 
               value="invitations" 

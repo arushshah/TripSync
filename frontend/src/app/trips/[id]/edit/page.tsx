@@ -13,9 +13,12 @@ import { Header } from '../../../../components/Header';
 import { ArrowLeft } from 'lucide-react';
 import { Trip } from '../../../../types';
 import { format } from 'date-fns';
+import { listTripCoverImagePaths, getTripCoverSignedUrl } from '../../../../lib/supabase';
+import Image from 'next/image';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 
 export default function EditTrip() {
-  const { user, loading } = useAuth();
+  const { user, user_id, loading } = useAuth();
   const router = useRouter();
   const params = useParams();
   const tripId = params.id as string;
@@ -33,6 +36,11 @@ export default function EditTrip() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [coverPhotoPath, setCoverPhotoPath] = useState<string | null>(null);
+  const [coverPhotoPreviewUrl, setCoverPhotoPreviewUrl] = useState<string | null>(null);
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
+  const [availablePhotos, setAvailablePhotos] = useState<string[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -44,8 +52,32 @@ export default function EditTrip() {
     }
   }, [loading, user, router, tripId]);
 
+  useEffect(() => {
+    // Preload available cover photo paths
+    const fetchPhotos = async () => {
+      setLoadingPhotos(true);
+      const paths = await listTripCoverImagePaths();
+      setAvailablePhotos(paths);
+      setLoadingPhotos(false);
+    };
+    fetchPhotos();
+  }, []);
+
+  // When coverPhotoPath changes, generate a signed URL for preview
+  useEffect(() => {
+    if (!coverPhotoPath) {
+      setCoverPhotoPreviewUrl(null);
+      return;
+    }
+    let isMounted = true;
+    getTripCoverSignedUrl(coverPhotoPath).then((url) => {
+      if (isMounted) setCoverPhotoPreviewUrl(url);
+    });
+    return () => { isMounted = false; };
+  }, [coverPhotoPath]);
+
   const fetchTripData = async () => {
-    if (!user || !tripId) return;
+    if (!user || !user_id || !tripId) return;
 
     try {
       setIsLoading(true);
@@ -54,7 +86,7 @@ export default function EditTrip() {
       const tripData = await api.getTripById(tripId);
       
       // Check if user is a planner
-      const currentMember = tripData.members?.find((member: any) => member.user_id === user.uid);
+      const currentMember = tripData.members?.find((member: any) => member.user_id === user_id);
       if (currentMember) {
         setUserRole(currentMember.role);
         
@@ -84,6 +116,7 @@ export default function EditTrip() {
         endDate: formatDateForInput(tripData.end_date),
         guestLimit: tripData.guest_limit || 0
       });
+      setCoverPhotoPath(tripData.cover_photo_path || null);
       
       setIsLoading(false);
     } catch (err: any) {
@@ -141,7 +174,8 @@ export default function EditTrip() {
         location: formData.location,
         start_date: formData.startDate,
         end_date: formData.endDate,
-        guest_limit: formData.guestLimit > 0 ? formData.guestLimit : null
+        guest_limit: formData.guestLimit > 0 ? formData.guestLimit : null,
+        cover_photo_path: coverPhotoPath || null
       });
       
       // Redirect back to the trip details page
@@ -192,6 +226,48 @@ export default function EditTrip() {
                   {error}
                 </div>
               )}
+
+              {/* Photo Picker UI */}
+              <div className="space-y-2">
+                <Label>Trip Cover Photo</Label>
+                <div className="flex items-center gap-4">
+                  {coverPhotoPreviewUrl ? (
+                    <Image src={coverPhotoPreviewUrl} alt="Trip Cover" width={120} height={80} className="rounded-md object-cover border" />
+                  ) : (
+                    <div className="w-[120px] h-[80px] bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground border">No photo</div>
+                  )}
+                  <Button type="button" variant="outline" onClick={() => setShowPhotoDialog(true)}>
+                    Choose Photo
+                  </Button>
+                </div>
+              </div>
+              {/* Photo Picker Dialog */}
+              <Dialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog}>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Choose a Trip Cover Photo</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto mt-2">
+                    {loadingPhotos ? (
+                      <div className="col-span-full text-center py-8">Loading photos...</div>
+                    ) : availablePhotos.length === 0 ? (
+                      <div className="col-span-full text-center py-8">No photos available</div>
+                    ) : (
+                      availablePhotos.map((path) => (
+                        <PhotoOptionButton
+                          key={path}
+                          filePath={path}
+                          selected={coverPhotoPath === path}
+                          onSelect={() => {
+                            setCoverPhotoPath(path);
+                            setShowPhotoDialog(false);
+                          }}
+                        />
+                      ))
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="space-y-2">
                 <Label htmlFor="name">Trip Name *</Label>
@@ -294,5 +370,31 @@ export default function EditTrip() {
         </Card>
       </main>
     </div>
+  );
+}
+
+// Helper component for photo option button
+function PhotoOptionButton({ filePath, selected, onSelect }: { filePath: string; selected: boolean; onSelect: () => void }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let isMounted = true;
+    getTripCoverSignedUrl(filePath).then((url) => {
+      if (isMounted) setPreviewUrl(url);
+    });
+    return () => { isMounted = false; };
+  }, [filePath]);
+  return (
+    <button
+      type="button"
+      className={`border rounded-md overflow-hidden focus:ring-2 focus:ring-primary ${selected ? 'ring-2 ring-primary' : ''}`}
+      onClick={onSelect}
+      disabled={!previewUrl}
+    >
+      {previewUrl ? (
+        <Image src={previewUrl} alt="Trip Cover Option" width={120} height={80} className="object-cover w-full h-[80px]" />
+      ) : (
+        <div className="w-[120px] h-[80px] flex items-center justify-center text-xs text-muted-foreground bg-muted">Loading...</div>
+      )}
+    </button>
   );
 }

@@ -23,6 +23,8 @@ export type Trip = {
   created_at: string;
   updated_at: string;
   members?: TripMember[];
+  cover_photo_url?: string;
+  cover_photo_path?: string;
 };
 
 export type TripMember = {
